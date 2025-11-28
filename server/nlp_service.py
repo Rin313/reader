@@ -1,27 +1,32 @@
+import os
 import spacy
-from spacy.tokens import Doc, Token
+from spacy.tokens import Doc
 from spacy.matcher import PhraseMatcher
 from spacy.util import filter_spans
 
 try:
     print("Loading NLP model (en_core_web_trf)...")
-    nlp = spacy.load("en_core_web_trf",disable=["ner"])
+    nlp = spacy.load(os.getcwd()+'\\en_core_web_trf',disable=["ner"])
 except OSError:
-    print("Model not found.")
-    nlp = None
+    print(f"Model load failed: {e}")
 # 全局缓存
 _CACHED_MATCHER = None
 _CACHED_VOCAB_ID = None
-
+# 两个接口无法同时执行
 def find_vocab_matches(vocab_list, text_list):
     global _CACHED_MATCHER, _CACHED_VOCAB_ID
     
-    # 检查是否需要重建 Matcher
     current_vocab_id = hash(tuple(vocab_list)) 
     
     if _CACHED_MATCHER is None or _CACHED_VOCAB_ID != current_vocab_id:
         _CACHED_MATCHER = PhraseMatcher(nlp.vocab, attr="LEMMA")
-        patterns = list(nlp.pipe(vocab_list))
+        
+        # 性能优化：生成 Pattern 时禁用 parser，只保留必要的组件以获取 lemma
+        # en_core_web_trf 的 lemmatizer 需要 tagger，tagger 需要 transformer
+        # 但 parser 是用于句法分析的，生成单个词的 lemma 时不需要
+        with nlp.select_pipes(disable=["parser"]):
+            patterns = list(nlp.pipe(vocab_list))
+            
         _CACHED_MATCHER.add("VOCAB_LIST", patterns)
         _CACHED_VOCAB_ID = current_vocab_id
 
@@ -45,23 +50,22 @@ def find_vocab_matches(vocab_list, text_list):
     return results
 def segment_text_content(text: str) -> list:
     if not nlp or not text.strip():
-        # 如果模型未加载或文本为空，返回简单封装
-        return [] #{"original": text, "segments": [text]}
+        return []
 
     doc = nlp(text)
     structured_results = []
 
     for sent in doc.sents:
-        # 跳过空白的句子（例如多余的换行符）# 这不是渲染PDF，不用在原来的画板上操作，每个块都非常自由，甚至不用考虑还原的问题。
+        # 跳过空白的句子
         if not sent.text.strip():
             continue
         segments = process_sentence_segmentation(sent)
-        structured_results+=segments #.append({"original": sent.text.strip(),"segments": segments })
+        structured_results+=segments
     return structured_results
 
 def process_sentence_segmentation(sent) -> list:
     """
-    优化后的逻辑：引入依存关系判断，避免将名词列表和短语切碎。
+    引入依存关系判断，避免将名词列表和短语切碎。
     """
     if len(sent) < 6:
         return [sent.text.strip()]

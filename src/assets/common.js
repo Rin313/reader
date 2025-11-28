@@ -281,31 +281,357 @@ export async function setIndexed(key, obj) {
     if (db) db.close();
   }
 }
-/*[
-  {
-    "ShortName": "en-US-JennyNeural",
-    "Gender": "Female",
-    "Locale": "en-US"
-  },
-  {
-    "ShortName": "zh-CN-YunxiNeural",
-    "Gender": "Male",
-    "Locale": "zh-CN"
-  },...
-] */
-export const getVoices = async () => {
-    const voices = await get(`${BASE_URL}/voices`);
-    return voices
-        .filter(voice => {
-            return voice.Locale === 'en-US' || voice.Locale === 'zh-CN';
-        })
-        .map(({ Name, ...rest }) => rest);
-};
+export const formatTime = (sec) => `00:${Math.floor(sec).toString().padStart(2, '0')}`
+export const formatVoiceLabel = (voice) => {
+  const name = voice.ShortName.split(':')[0].split('-').pop().replace('Neural', '')
+  const genderShort = voice.Gender === 'Female' ? 'F' : 'M'
+  return `${name} (${genderShort})`
+}
 export const translatorOptions = [
   { label: 'Google Translate', value: 'google' },
-  { label: 'DeepL', value: 'deepl' },
   { label: 'Microsoft Azure', value: 'bing' },
-  { label: 'Alibaba', value: 'alibaba' },
   { label: 'Caiyun', value: 'caiyun' },
+  { label: 'Alibaba', value: 'alibaba' },
   { label: 'Sogou', value: 'sogou' },
 ]
+export const enVoices = [
+    {
+      "ShortName": "en-US-AvaMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-AndrewMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-AmandaMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-AdamMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-EmmaMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-PhoebeMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-AlloyTurboMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-EchoTurboMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-FableTurboMultilingualNeural",
+      "Gender": "Neutral"
+    },
+    {
+      "ShortName": "en-US-OnyxTurboMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-NovaTurboMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-ShimmerTurboMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-BrianMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-AvaNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-AndrewNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-EmmaNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-BrianNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-JennyNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-GuyNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-AriaNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-DavisNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-JaneNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-JasonNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-KaiNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-LunaNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-SaraNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-TonyNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-NancyNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-CoraMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-ChristopherMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-BrandonMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-AmberNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-AnaNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-AshleyNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-BrandonNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-ChristopherNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-CoraNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-DavisMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-DerekMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-DustinMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-ElizabethNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-EricNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-JacobNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-JennyMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-LewisMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-LolaMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-MichelleNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-MonicaNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-NancyMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-RogerNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-RyanMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-SamuelMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-SerenaMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "en-US-SteffanMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "en-US-SteffanNeural",
+      "Gender": "Male"
+    }
+  ];
+
+export const cnVoices = [
+    {
+      "ShortName": "zh-CN-XiaoxiaoNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-YunxiNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "zh-CN-YunjianNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "zh-CN-XiaoyiNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-YunyangNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "zh-CN-XiaochenNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaochenMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaohanNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaomengNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaomoNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaoqiuNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaorouNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaoruiNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaoshuangNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaoxiaoDialectsNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaoxiaoMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaoyanNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaoyouNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaoyuMultilingualNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-XiaozhenNeural",
+      "Gender": "Female"
+    },
+    {
+      "ShortName": "zh-CN-YunfengNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "zh-CN-YunhaoNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "zh-CN-YunjieNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "zh-CN-YunxiaNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "zh-CN-YunxiaoMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "zh-CN-YunyeNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "zh-CN-YunyiMultilingualNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "zh-CN-YunzeNeural",
+      "Gender": "Male"
+    },
+    {
+      "ShortName": "zh-CN-YunfanMultilingualNeural",
+      "Gender": "Male"
+    }
+  ]  

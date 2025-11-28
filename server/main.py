@@ -1,35 +1,74 @@
+import sys
 import os
 import shutil
 import tempfile
 import uvicorn
+import webbrowser
 from contextlib import asynccontextmanager
-from typing import List
+from typing import List, Dict, Callable
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from nlp_service import segment_text_content, find_vocab_matches
 from text_processors import extract_pdf, extract_epub, extract_mobi, extract_txt
 from translator import translate_text_wrapper
-from tts import generate_audio_stream , get_all_voices
+from tts import generate_audio_stream
 
-# --- 生命周期管理 ---
+def disable_quick_edit():
+    # 仅在 Windows 下运行
+    if sys.platform == 'win32':
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            
+            # 获取标准输入句柄
+            hStdIn = kernel32.GetStdHandle(-10)
+            
+            # 获取当前控制台模式
+            mode = ctypes.c_ulong()
+            kernel32.GetConsoleMode(hStdIn, ctypes.byref(mode))
+            
+            # 定义 Quick Edit Mode 标志位 (0x0040)
+            ENABLE_QUICK_EDIT_MODE = 0x0040
+            
+            # 移除 Quick Edit Mode 标志
+            new_mode = mode.value & ~ENABLE_QUICK_EDIT_MODE
+            
+            # 设置新的控制台模式
+            kernel32.SetConsoleMode(hStdIn, new_mode)
+            print("Windows 控制台快速编辑模式已禁用。")
+        except Exception as e:
+            print(f"无法禁用快速编辑模式: {e}")
+# --- 配置 ---
+HOST = "127.0.0.1"
+PORT = 8000
+BASE_URL = f"http://{HOST}:{PORT}"
+
+FILE_EXTRACTORS: Dict[str, Callable[[str], List[str]]] = {
+    ".txt": extract_txt,
+    ".pdf": extract_pdf,
+    ".epub": extract_epub,
+    ".mobi": extract_mobi
+}
+
+# --- 生命周期管理 & 自动开启浏览器 ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("System starting up... All models loaded.")
+    print("System starting up... Models loaded.")
+    # 在服务启动时打开浏览器，避免阻塞
+    try:
+        webbrowser.open(BASE_URL)
+        print(f"Browser opened at {BASE_URL}")
+    except Exception as e:
+        print(f"Failed to open browser: {e}")
     yield
     print("System shutting down...")
 
-# --- 应用初始化 ---
-app = FastAPI(
-    title="Document Text Extractor & Learner",
-    lifespan=lifespan,
-    openapi_url=None, 
-    docs_url=None,
-    redoc_url=None
-)
+app = FastAPI(title="Doc Learner", lifespan=lifespan,openapi_url=None, docs_url=None, redoc_url=None)
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,6 +78,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Pydantic Models ---
 class SegmentRequest(BaseModel):
     text: str
 
@@ -47,10 +87,10 @@ class VocabMatchRequest(BaseModel):
     text_list: List[str]
 
 class TranslationRequest(BaseModel):
-    text: str = Field(..., description="需要翻译的文本内容", min_length=1)
-    translator: str = Field("bing", description="使用的翻译引擎")
-    from_lang: str = Field("auto", description="源语言代码")
-    to_lang: str = Field("en", description="目标语言代码")
+    text: str = Field(..., min_length=1)
+    translator: str = "bing"
+    from_lang: str = "auto"
+    to_lang: str = "en"
 
 class TranslationResponse(BaseModel):
     original_text: str
@@ -63,30 +103,26 @@ class TTSRequest(BaseModel):
     voice: str = "zh-CN-XiaoxiaoNeural"
     rate: str = "+0%"
 
+# --- Endpoints ---
+
 @app.post("/upload")
-async def upload_and_extract(file: UploadFile = File(...)):
+def upload_and_extract(file: UploadFile = File(...)):
+    # 优化：使用 set/dict 快速查找，降低复杂度
     filename = file.filename.lower()
     _, file_ext = os.path.splitext(filename)
     
-    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=file_ext)
-    file_path = tmp_file.name
+    if file_ext not in FILE_EXTRACTORS:
+        raise HTTPException(status_code=400, detail="Unsupported format.")
 
+    # 创建临时文件
+    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=file_ext)
     try:
+        # 同步写入文件 (FastAPI 在 def 定义的路由中会使用线程池，不会阻塞主循环)
         with tmp_file:
             shutil.copyfileobj(file.file, tmp_file)
         
-        extracted_lines: List[str] = []
-        
-        if file_ext == ".txt":
-            extracted_lines = extract_txt(file_path)
-        elif file_ext == ".pdf":
-            extracted_lines = extract_pdf(file_path)
-        elif file_ext == ".epub":
-            extracted_lines = extract_epub(file_path)
-        elif file_ext == ".mobi":
-            extracted_lines = extract_mobi(file_path)
-        else:
-            raise HTTPException(status_code=400, detail="Unsupported format.")
+        # 调用映射的处理函数
+        extracted_lines = FILE_EXTRACTORS[file_ext](tmp_file.name)
         
         return {
             "filename": file.filename,
@@ -94,90 +130,65 @@ async def upload_and_extract(file: UploadFile = File(...)):
             "lines": extracted_lines,
             "total_lines": len(extracted_lines)
         }
-
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
     finally:
-        try:
-            if os.path.exists(file_path):
-                os.unlink(file_path)
-        except OSError:
-            pass
+        # 确保清理临时文件
+        if os.path.exists(tmp_file.name):
+            os.unlink(tmp_file.name)
 
 @app.post("/segment")
-async def segment_sentence(request: SegmentRequest):
-    if not request.text:
-        return {"segments": []} # 保持返回结构一致性
-        
+def segment_sentence(request: SegmentRequest):
+    # 简化判空逻辑
+    if not request.text: return {"segments": []}
     try:
-        result = segment_text_content(request.text)
-        return {"segments": result}
+        return {"segments": segment_text_content(request.text)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Segmentation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Seg failed: {str(e)}")
 
 @app.post("/match_vocab")
-async def match_vocabulary(request: VocabMatchRequest):
-    if not request.vocab_list or not request.text_list:
-        return []
-
+def match_vocabulary(request: VocabMatchRequest):
+    if not request.vocab_list or not request.text_list: return []
     try:
-        # 如果并发量大，建议改为 def match_vocabulary 并让 FastAPI 放入线程池
-        matches = find_vocab_matches(request.vocab_list, request.text_list)
-        return matches
-
+        return find_vocab_matches(request.vocab_list, request.text_list)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Vocabulary matching failed: {str(e)}")
 
 @app.post("/translate", response_model=TranslationResponse)
 def translate_api(request: TranslationRequest):
     try:
-        result = translate_text_wrapper(
-            text=request.text,
-            translator=request.translator,
-            from_lang=request.from_lang,
-            to_lang=request.to_lang
-        )
-        
+        result = translate_text_wrapper(**request.model_dump())
         return TranslationResponse(
             original_text=request.text,
             translated_text=str(result),
             translator=request.translator
         )
-        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Translation Error: {str(e)}")
-
-@app.get("/voices")
-async def list_voices_endpoint():
-    voices = await get_all_voices()
-    return JSONResponse(content=voices)
+        raise HTTPException(status_code=500, detail=f"Trans failed: {str(e)}")
 
 @app.post("/tts")
-async def tts_post_endpoint(request: TTSRequest):
+def tts_post_endpoint(request: TTSRequest):
     if not request.text:
-        raise HTTPException(status_code=400, detail="Text is required")
-    audio_generator = generate_audio_stream(
-        request.text,
-        request.voice,
-        request.rate,
-        # request.volume,
-        # request.pitch
-    )
+        raise HTTPException(status_code=400, detail="Text required")
 
     return StreamingResponse(
-        audio_generator, 
+        generate_audio_stream(request.text, request.voice, request.rate), 
         media_type="audio/mpeg",
         headers={"Content-Disposition": "attachment; filename=tts_audio.mp3"}
     )
 
+# 静态文件挂载放在最后，避免覆盖 API 路由
+app.mount("/", StaticFiles(directory="dist", html=True), name="static")
+
 if __name__ == "__main__":
+    disable_quick_edit()
+    import multiprocessing
+    multiprocessing.freeze_support()
+    
     uvicorn.run(
-        "main:app", 
-        host="0.0.0.0", 
-        port=8000, 
+        app, 
+        host=HOST, 
+        port=PORT, 
         reload=False, 
-        access_log=True,
-        log_level="info" 
+        log_level="info"
     )
