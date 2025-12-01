@@ -323,8 +323,6 @@ def clean_html_to_list(html_content: str) -> List[str]:
             return post_process_text_list(raw_lines)
     except Exception as e:
         print(f"[Trafilatura Error]: {e}")  # 打印错误
-        import traceback
-        traceback.print_exc() # 打印详细堆栈
         pass 
 
     # 方案 B: BeautifulSoup

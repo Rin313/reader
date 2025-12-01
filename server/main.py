@@ -13,36 +13,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from common import disable_quick_edit
 from nlp_service import segment_text_content, find_vocab_matches
 from text_processors import extract_pdf, extract_epub, extract_mobi, extract_txt
 from translator import translate_text_wrapper
 from tts import generate_audio_stream
 
-def disable_quick_edit():
-    # 仅在 Windows 下运行
-    if sys.platform == 'win32':
-        try:
-            import ctypes
-            kernel32 = ctypes.windll.kernel32
-            
-            # 获取标准输入句柄
-            hStdIn = kernel32.GetStdHandle(-10)
-            
-            # 获取当前控制台模式
-            mode = ctypes.c_ulong()
-            kernel32.GetConsoleMode(hStdIn, ctypes.byref(mode))
-            
-            # 定义 Quick Edit Mode 标志位 (0x0040)
-            ENABLE_QUICK_EDIT_MODE = 0x0040
-            
-            # 移除 Quick Edit Mode 标志
-            new_mode = mode.value & ~ENABLE_QUICK_EDIT_MODE
-            
-            # 设置新的控制台模式
-            kernel32.SetConsoleMode(hStdIn, new_mode)
-            print("Windows 控制台快速编辑模式已禁用。")
-        except Exception as e:
-            print(f"无法禁用快速编辑模式: {e}")
 # --- 配置 ---
 HOST = "127.0.0.1"
 PORT = 8000

@@ -12,6 +12,5 @@ async def generate_audio_stream(
         rate=rate
     )
     async for chunk in communicate.stream():
-        # edge-tts 的 stream 会返回多种类型的 chunk (audio, WordBoundary 等)，我们只需要音频数据
         if chunk["type"] == "audio":
             yield chunk["data"]

@@ -29,32 +29,22 @@ def safe_copy_metadata(package_name):
         print(f"WARNING: No metadata for {package_name}: {e}")
         return []
 
-# --- 2. 收集常规依赖 ---
+# --- 收集常规依赖 ---
 safe_collect('trafilatura')
 safe_collect('justext') 
-safe_collect('spacy_transformers')
-safe_collect('spacy_alignments')
-safe_collect('spacy_curated_transformers')
-safe_collect('spacy_curated_transformers.pipeline')
 safe_collect('curated_transformers')
 
-
-datas += safe_copy_metadata('spacy_transformers')
 datas += safe_copy_metadata('spacy_curated_transformers')
-datas += safe_copy_metadata('curated_transformers')
 
 
-# --- 4. Hidden Imports ---
+# --- Hidden Imports ---
 hiddenimports += [
-    'spacy_transformers',
-    'spacy_transformers.architectures',
-    'spacy_transformers.pipeline_component',
-    
-    # Curated Transformers 组件
-    'spacy_curated_transformers',
-    'spacy_curated_transformers.architectures',
-    'spacy_curated_transformers.pipeline',
     'curated_transformers',
+    'spacy_transformers',
+    'spacy_curated_transformers',
+    'spacy_alignments',
+    'spacy_transformers.pipeline_component',
+    'spacy_curated_transformers.pipeline',
 ]
 
 block_cipher = None
