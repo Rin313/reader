@@ -294,6 +294,23 @@ export const translatorOptions = [
   { label: 'Alibaba', value: 'alibaba' },
   { label: 'Sogou', value: 'sogou' },
 ]
+export const getAudioUrl = async (abortController,text, voice, rate="+0%") => {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/tts', { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice: voice, rate }),
+      signal: abortController.signal
+    })
+    if (!response.ok) throw new Error('TTS request failed')
+    const audioBlob = await response.blob()
+    return URL.createObjectURL(audioBlob)
+  } catch (error) {
+    if (error.name === 'AbortError') return null
+    console.error('TTS Fetch Error:', error)
+    throw error
+  }
+}
 export const enVoices = [
     {
       "ShortName": "en-US-AvaMultilingualNeural",

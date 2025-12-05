@@ -1,6 +1,6 @@
 import sys
 
-def disable_quick_edit():
+def disable_quick_edit_if_win():
     """
     仅在 Windows 下运行：禁用控制台的快速编辑模式，
     防止点击控制台导致程序挂起。

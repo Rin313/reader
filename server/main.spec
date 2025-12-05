@@ -71,15 +71,15 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='DeepReader',
+    name='DeepReader', # 生成的文件名
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    console=True,
+    upx=False,  # Mac 上必须关闭 UPX，否则经常报错
+    console=True, # Server 应用保留控制台比较好调试
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_arch=None,
+    target_arch=None, # 默认架构（根据 Runner，GitHub Actions 是 x86_64 或 arm64）
     codesign_identity=None,
     entitlements_file=None,
 )
@@ -90,7 +90,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='DeepReader',
 )

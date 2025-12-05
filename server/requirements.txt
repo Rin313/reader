@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+python-multipart
+pydantic
+spacy
+PyMuPDF
+EbookLib
+beautifulsoup4
+trafilatura
+mobi
+translators
+edge-tts

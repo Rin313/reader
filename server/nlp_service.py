@@ -6,8 +6,9 @@ from spacy.util import filter_spans
 
 try:
     print("Loading NLP model (en_core_web_trf)...")
-    nlp = spacy.load(os.getcwd()+'\\en_core_web_trf',disable=["ner"])
-except OSError:
+    nlp = spacy.load(os.path.join(os.getcwd(), "en_core_web_trf"),disable=["ner"])
+    
+except Exception as e:
     print(f"Model load failed: {e}")
 # 全局缓存
 _CACHED_MATCHER = None
@@ -24,8 +25,7 @@ def find_vocab_matches(vocab_list, text_list):
         # 性能优化：生成 Pattern 时禁用 parser，只保留必要的组件以获取 lemma
         # en_core_web_trf 的 lemmatizer 需要 tagger，tagger 需要 transformer
         # 但 parser 是用于句法分析的，生成单个词的 lemma 时不需要
-        with nlp.select_pipes(disable=["parser"]):
-            patterns = list(nlp.pipe(vocab_list))
+        patterns = list(nlp.pipe(vocab_list, disable=["parser"]))
             
         _CACHED_MATCHER.add("VOCAB_LIST", patterns)
         _CACHED_VOCAB_ID = current_vocab_id

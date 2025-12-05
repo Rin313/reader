@@ -23,11 +23,6 @@
                 </n-radio-group>
                 </div>
                 <n-divider vertical class="!h-6 !bg-slate-200 hidden sm:block" />
-                <n-popselect v-model:value="currentTranslator" :options="translatorOptions" trigger="click" @update:value="handleTranslatorChange">
-                <n-button circle secondary type="default" class="!w-9 !h-9 mr-1">
-                    <template #icon><n-icon size="18"><LanguageOutline /></n-icon></template>
-                </n-button>
-                </n-popselect>
                 <div class="flex items-center gap-2">
                     <n-tooltip trigger="hover" :show-arrow="false">
                         <template #trigger>
@@ -45,6 +40,11 @@
                         </template>
                         {{ vocabHighlightEnabled ? '关闭生词高亮' : '开启生词高亮' }}
                     </n-tooltip>
+                    <n-popselect v-model:value="currentTranslator" :options="translatorOptions" trigger="click" @update:value="handleTranslatorChange">
+                        <n-button circle secondary type="default" class="!w-9 !h-9">
+                            <template #icon><n-icon size="18"><LanguageOutline /></n-icon></template>
+                        </n-button>
+                    </n-popselect>
                     <n-tooltip trigger="hover" :show-arrow="false">
                         <template #trigger>
                         <n-button circle secondary type="default" @click="vocabInputRef.click()" class="!w-9 !h-9">
@@ -57,10 +57,8 @@
             </div>
         </div>
       </header>
-
       <main class="flex-1 max-w-3xl mx-auto w-full px-4 py-10 pb-48 relative">
         <transition name="fade" mode="out-in">
-          <!-- 空状态 -->
           <div v-if="paragraphs.length === 0" class="flex flex-col items-center justify-center py-20 select-none min-h-[60vh]">
             <div 
               class="w-full max-w-lg border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/30 bg-white rounded-3xl p-12 flex flex-col items-center text-center transition-all duration-300 cursor-pointer group"
@@ -73,17 +71,15 @@
               <p class="text-sm text-slate-400 mb-6">支持 TXT, EPUB, MOBI, PDF<br>智能提取文本与意群分析</p>
             </div>
           </div>
-
           <!-- 阅读区域 -->
           <div v-else class="space-y-8">
-            <!-- 顶部状态栏 -->
             <div class="sticky top-20 z-20 flex justify-between items-center px-2 py-2 bg-[#f8fafc]/90 backdrop-blur text-xs text-slate-500 border-b border-slate-200/50">
-              <span>共 {{ paragraphs.length }} 个段落 | 翻译引擎: {{ currentTranslator }}</span>
+              <span>{{ paragraphs.length }} Paragraphs</span>
               <span v-if="isBatchTranslating" class="text-amber-600 flex items-center gap-1">
-                <n-icon class="animate-spin"><ReloadOutline /></n-icon> 正在翻译...
+                <n-icon class="animate-spin"><ReloadOutline /></n-icon> Translating...
               </span>
               <span v-if="isPlaying || isBuffering" class="text-indigo-500 font-medium flex items-center gap-1" :class="{'animate-pulse': isBuffering}">
-                <n-icon><PulseOutline /></n-icon> {{ isBuffering ? '加载语音...' : '正在朗读...' }}
+                <n-icon><PulseOutline /></n-icon> {{ isBuffering ? 'Loading...' : 'Reading...' }}
               </span>
             </div>
             <div 
@@ -102,7 +98,6 @@
                  <n-icon v-if="para.processingSegment" size="16" class="animate-spin text-indigo-300"><GitNetworkOutline /></n-icon>
                  <n-icon v-if="para.translating" size="16" class="animate-spin text-amber-400"><LanguageOutline /></n-icon>
               </div>
-
               <!-- 英文内容 -->
               <div v-if="viewMode !== 'cn'" class="relative">
                 <div class="font-serif text-xl tracking-wide transition-colors duration-300" 
@@ -110,7 +105,7 @@
                        segmentationEnabled ? 'leading-[2.6]' : 'leading-[1.8]',
                        (currentPlayingIndex === index && readingPhase === 'en') ? 'text-indigo-900 font-medium' : 'text-slate-800'
                      ]">
-                  <template v-if="segmentationEnabled && para.chunks?.length">
+                  <template v-if="segmentationEnabled && para.chunks && para.chunks.length > 0">
                     <span 
                       v-for="(chunk, cIndex) in para.chunks" 
                       :key="cIndex"
@@ -123,7 +118,6 @@
                   </template>
                 </div>
               </div>
-
               <!-- 中文内容 -->
               <div v-if="viewMode !== 'en'" class="mt-4 pt-4 border-t border-dashed border-slate-200">
                 <div v-if="!para.cnText && para.translating" class="space-y-2 animate-pulse">
@@ -132,7 +126,7 @@
                 </div>
                 <p v-else class="text-base leading-8 font-sans text-justify transition-colors duration-300"
                    :class="(currentPlayingIndex === index && readingPhase === 'cn') ? 'text-indigo-700 font-medium' : 'text-slate-500 hover:text-slate-700'">
-                  {{ para.cnText || '（翻译中...）' }}
+                  {{ para.cnText }}
                 </p>
               </div>
             </div>
@@ -141,8 +135,7 @@
           </div>
         </transition>
       </main>
-
-      <!-- 底部悬浮播放器 -->
+      <!-- 悬浮播放器 -->
       <transition name="slide-up">
         <div v-if="paragraphs.length > 0" class="fixed bottom-6 left-0 right-0 z-40 px-4 flex justify-center pointer-events-none">
            <div class="bg-slate-900/95 backdrop-blur-xl text-white p-3 pl-4 rounded-2xl shadow-2xl shadow-slate-900/30 w-full max-w-xl pointer-events-auto border border-slate-700/50 flex flex-col gap-2 ring-1 ring-white/10">
@@ -238,8 +231,6 @@
            </div>
         </div>
       </n-modal>
-
-      <!-- Hidden Inputs -->
       <input type="file" ref="fileInputRef" class="hidden" @change="handleFileChange" accept=".txt,.epub,.mobi,.pdf" />
       <input type="file" ref="vocabInputRef" class="hidden" @change="handleVocabFileParse" accept=".csv,.xlsx" />
 
@@ -259,7 +250,7 @@ import {
 } from '@vicons/ionicons5'
 import { 
   uploadAndExtract, segmentSentence, readExcelFile, extractColumnFromData, 
-  getIndexed, setIndexed, matchVocabulary, translateParagraphs, translatorOptions,enVoices,cnVoices,formatTime,formatVoiceLabel
+  getIndexed, setIndexed, matchVocabulary, translateParagraphs, translatorOptions,enVoices,cnVoices,formatTime,formatVoiceLabel,getAudioUrl
 } from './assets/common'
 
 // --- Theme & Config ---
@@ -342,33 +333,11 @@ const handleTranslatorChange = () => {
   setTimeout(() => { initObserver() }, 600)
 }
 
-const getAudioUrl = async (text, voice, rate="+0%") => {
-  if (abortController) abortController.abort()
-  abortController = new AbortController()
-  try {
-    const response = await fetch('http://127.0.0.1:8000/tts', { 
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice: voice, rate }),
-      signal: abortController.signal
-    })
-    if (!response.ok) throw new Error('TTS request failed')
-    const audioBlob = await response.blob()
-    return URL.createObjectURL(audioBlob)
-  } catch (error) {
-    if (error.name === 'AbortError') return null
-    console.error('TTS Fetch Error:', error)
-    throw error
-  }
-}
-
 onMounted(async () => {
   try {
     const data = await getIndexed('vocabs', [])
     if (Array.isArray(data)) userVocabList.value = new Set(data)
   } catch (e) { console.error('本地词库加载失败', e) }
-  //预热一个需要初始化的后端接口
-  matchVocabulary(Array.from(userVocabList.value), ['']);
   audio.addEventListener('timeupdate', () => { currentTime.value = audio.currentTime })
   audio.addEventListener('loadedmetadata', () => { totalTime.value = audio.duration; isBuffering.value = false })
   audio.addEventListener('waiting', () => { isBuffering.value = true })
@@ -439,9 +408,21 @@ const processParagraph = async (index) => {
   if (needsEnglishEnhancement) {
     if (segmentationEnabled.value && !p.chunks && !p.processingSegment) {
       p.processingSegment = true
-      try { const res = await segmentSentence(p.enText); p.chunks = res?.segments || [p.enText] } 
-      catch { p.chunks = [p.enText] } 
-      finally { p.processingSegment = false; if (vocabHighlightEnabled.value) matchAndHighlight(index) }
+      try { 
+        const res = await segmentSentence(p.enText); 
+        if (res && res.segments && res.segments.length > 0) {
+            p.chunks = res.segments
+        } else {
+            p.chunks = null // 无效或空，保持 null，触发前端回退到 RawHtml
+        }
+      } 
+      catch { 
+        p.chunks = null
+      } 
+      finally { 
+        p.processingSegment = false; 
+        if (vocabHighlightEnabled.value) matchAndHighlight(index) 
+      }
     }
     if (vocabHighlightEnabled.value) matchAndHighlight(index)
   }
@@ -518,7 +499,7 @@ const getChunkHtml = (para, index, originalChunk) => (vocabHighlightEnabled.valu
 const matchAndHighlight = async (index) => {
   const p = paragraphs.value[index]
   if (!userVocabList.value.size) return
-  const isChunkMode = segmentationEnabled.value && p.chunks?.length
+  const isChunkMode = segmentationEnabled.value && p.chunks && p.chunks.length > 0
   const hasCache = isChunkMode ? !!p.chunksDisplay : !!p.enTextDisplay
   if (hasCache || p.processingVocab) return
   p.processingVocab = true
@@ -578,7 +559,9 @@ const loadAndPlayAudio = async () => {
   if (!textToRead) return
   isBuffering.value = true
   try {
-    const url = await getAudioUrl(textToRead, voice, getFormattedRate())
+    if (abortController) abortController.abort()
+    abortController = new AbortController()
+    const url = await getAudioUrl(abortController,textToRead, voice, getFormattedRate())
     if (!url) return 
     audio.src = url
     audio.play().catch(e => { console.error("Auto play failed", e); isPlaying.value = false })
