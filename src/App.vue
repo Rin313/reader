@@ -2,9 +2,9 @@
   <n-config-provider :theme-overrides="themeOverrides">
     <div class="min-h-screen bg-[#f8fafc] text-slate-700 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-800"> 
       <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-lg border-b border-slate-200/60 transition-all duration-300">
-        <div class="max-w-screen-2xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div class="max-w-screen-2xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3 cursor-pointer select-none group opacity-90 hover:opacity-100 transition-opacity" @click="resetReader">
-                <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0">
                   <n-icon size="20" color="#fff"><BookOutline /></n-icon>
                 </div>
                 <div class="hidden sm:flex flex-col">
@@ -12,16 +12,16 @@
                 </div>
             </div>
             <!-- Controls -->
-            <div class="flex items-center gap-4">
-                <div class="hidden sm:flex items-center p-1 bg-slate-100/80 rounded-lg border border-slate-200/50">
+            <div class="flex items-center gap-2 sm:gap-4">
+                <div class="flex items-center p-1 bg-slate-100/80 rounded-lg border border-slate-200/50">
                   <n-radio-group v-model:value="viewMode" size="small" @update:value="handleViewModeChange">
-                      <n-radio-button value="en" class="!px-3">EN</n-radio-button>
-                      <n-radio-button value="dual" class="!px-3">Dual</n-radio-button>
-                      <n-radio-button value="cn" class="!px-3">CN</n-radio-button>
+                      <n-radio-button value="en" class="!px-2 sm:!px-3">EN</n-radio-button>
+                      <n-radio-button value="dual" class="!px-2 sm:!px-3">Dual</n-radio-button>
+                      <n-radio-button value="cn" class="!px-2 sm:!px-3">CN</n-radio-button>
                   </n-radio-group>
                 </div>
                 <n-divider vertical class="!h-5 !bg-slate-300 hidden sm:block" />
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1 sm:gap-2">
                     <n-tooltip trigger="hover" :show-arrow="false">
                         <template #trigger>
                         <n-button circle quaternary :type="segmentationEnabled ? 'primary' : 'default'" @click="toggleSegmentation">
