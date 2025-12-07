@@ -311,6 +311,26 @@ export const getAudioUrl = async (abortController,text, voice, rate="+0%") => {
     throw error
   }
 }
+export const speedOptions = [0.75, 1.0, 1.25, 1.5].map(v => ({ label: `${v}x`, value: v }))
+export const formatRate = (rate) => {
+  const percent = Math.round((rate - 1) * 100)
+  return percent >= 0 ? `+${percent}%` : `${percent}%`
+}
+export const generateHighlightHtml = (text, matches) => {
+  if (!text) return ''
+  if (!matches?.length) return text
+  const sorted = [...matches].sort((a, b) => b.start - a.start)
+  let result = text
+  sorted.forEach(m => {
+    const { start, length } = m
+    if (start < 0 || start + length > result.length) return
+    const word = result.slice(start, start + length)
+    result = result.slice(0, start) + 
+      `<span class="border-b-[1.5px] border-amber-400 text-amber-900/90 cursor-help hover:bg-amber-100/50 hover:text-amber-700 transition-colors">${word}</span>` + 
+      result.slice(start + length)
+  })
+  return result
+}
 export const enVoices = [
     {
       "ShortName": "en-US-AvaMultilingualNeural",

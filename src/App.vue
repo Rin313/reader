@@ -217,7 +217,8 @@ import {
 } from '@vicons/ionicons5'
 import { 
   uploadAndExtract, segmentSentence, readExcelFile, extractColumnFromData, 
-  getIndexed, setIndexed, matchVocabulary, translateParagraphs, translatorOptions,enVoices,cnVoices,formatTime,formatVoiceLabel,getAudioUrl
+  getIndexed, setIndexed, matchVocabulary, translateParagraphs, translatorOptions,
+  enVoices, cnVoices, formatTime, formatVoiceLabel, getAudioUrl,speedOptions, formatRate, generateHighlightHtml
 } from './assets/common'
 const themeOverrides = {
   common: { primaryColor: '#4f46e5', primaryColorHover: '#4338ca', borderRadius: '8px' }
@@ -252,32 +253,26 @@ const enVoiceOptions = computed(() => enVoices.map(v => ({ label: formatVoiceLab
 const cnVoiceOptions = computed(() => cnVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName })))
 const currentTextPreview = computed(() => {
   const p = paragraphs.value[currentPlayingIndex.value]
-  if (!p) return 'Ready to start'
-  if (readingPhase.value === 'cn' && p.cnText) return p.cnText
-  return p.enText
+  return !p ? 'Ready to start' : (readingPhase.value === 'cn' && p.cnText) ? p.cnText : p.enText
 })
 const playProgress = computed(() => totalTime.value > 0 ? (currentTime.value / totalTime.value) * 100 : 0)
 const handleParagraphClick = (e, index) => {
-  const selection = window.getSelection()
-  if (selection && selection.toString().length > 0) return
+  if (window.getSelection()?.toString().length > 0) return
   playParagraph(index)
 }
 const playParagraph = async (index, resetPhase = true) => {
   if (index < 0 || index >= paragraphs.value.length) return
   currentPlayingIndex.value = index
-  if (resetPhase) {
-    readingPhase.value = (viewMode.value === 'cn') ? 'cn' : 'en'
-  }
-  const el = document.getElementById(`para-${index}`)
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (resetPhase) readingPhase.value = viewMode.value === 'cn' ? 'cn' : 'en'
+  document.getElementById(`para-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   await loadAndPlayAudio()
 }
 const handleTranslatorChange = () => {
-  if (translationTimer) clearTimeout(translationTimer)
+  clearTimeout(translationTimer)
   translationQueue.clear()
   isBatchTranslating.value = false
   paragraphs.value.forEach(p => { p.cnText = ''; p.translating = false })
-  setTimeout(() => { initObserver() }, 600)
+  setTimeout(initObserver, 600)
 }
 onMounted(async () => {
   try {
@@ -290,13 +285,10 @@ onMounted(async () => {
   audio.addEventListener('playing', () => { isBuffering.value = false; isPlaying.value = true })
   audio.addEventListener('pause', () => { isPlaying.value = false })
   audio.addEventListener('ended', async () => {
-    if (viewMode.value === 'dual' && readingPhase.value === 'en') {
-      const p = paragraphs.value[currentPlayingIndex.value]
-      if (p && p.cnText) {
-        readingPhase.value = 'cn'
-        await loadAndPlayAudio()
-        return
-      }
+    const p = paragraphs.value[currentPlayingIndex.value]
+    if (viewMode.value === 'dual' && readingPhase.value === 'en' && p?.cnText) {
+      readingPhase.value = 'cn'
+      return loadAndPlayAudio()
     }
     if (currentPlayingIndex.value < paragraphs.value.length - 1) {
       playParagraph(currentPlayingIndex.value + 1)
@@ -315,20 +307,16 @@ const getParagraphClass = (index) => {
   ]
 }
 const resetReader = () => {
-  if(paragraphs.value.length && confirm('确定要清空当前书籍吗？')) {
-    pauseTTS()
-    audio.src = ''
-    paragraphs.value = []
-    currentPlayingIndex.value = -1
-    translationQueue.clear()
-    observer?.disconnect()
+  if (paragraphs.value.length && confirm('Clear all？')) {
+    pauseTTS(); audio.src = ''; paragraphs.value = []
+    currentPlayingIndex.value = -1; translationQueue.clear(); observer?.disconnect()
   }
 }
 const handleFileChange = async (e) => {
   const file = e.target.files[0]
   if (!file) return
   try {
-    const extracted = await uploadAndExtract(file);
+    const extracted = await uploadAndExtract(file)
     if (extracted?.lines?.length) {
       paragraphs.value = extracted.lines.map((line, index) => ({
         id: `p-${index}`,
@@ -336,7 +324,7 @@ const handleFileChange = async (e) => {
         processingSegment: false, processingVocab: false, translating: false 
       }));
       message.success(`导入成功`);
-      setTimeout(() => { initObserver() }, 600)
+      setTimeout(initObserver, 600)
     } else { message.error("未提取到有效文本"); }
   } catch (error) { message.error("解析失败"); console.error(error); } finally { e.target.value = '' }
 }
@@ -344,49 +332,45 @@ const handleViewModeChange = () => { initObserver(); if (isPlaying.value) playPa
 const processParagraph = async (index) => {
   const p = paragraphs.value[index]
   if (!p) return
-  const needsChinese = viewMode.value === 'cn' || viewMode.value === 'dual'
-  const needsEnglishEnhancement = viewMode.value === 'en' || viewMode.value === 'dual'
-  if (needsEnglishEnhancement) {
+  const needsChinese = viewMode.value !== 'en'
+  const needsEnglish = viewMode.value !== 'cn'
+
+  if (needsEnglish) {
     if (segmentationEnabled.value && !p.chunks && !p.processingSegment) {
       p.processingSegment = true
       try { 
-        const res = await segmentSentence(p.enText); 
-        if (res && res.segments && res.segments.length > 0) {
-            p.chunks = res.segments
-        } else {
-            p.chunks = null 
-        }
-      } 
-      catch { p.chunks = null } 
-      finally { 
-        p.processingSegment = false; 
-        if (vocabHighlightEnabled.value) matchAndHighlight(index) 
-      }
+        const res = await segmentSentence(p.enText)
+        p.chunks = res?.segments?.length > 0 ? res.segments : null
+      } catch { p.chunks = null } 
+      finally { p.processingSegment = false; if (vocabHighlightEnabled.value) matchAndHighlight(index) }
     }
     if (vocabHighlightEnabled.value) matchAndHighlight(index)
   }
   if (needsChinese && !p.cnText && !p.translating) queueTranslation(index)
 }
 const queueTranslation = (index) => {
-  if (translationQueue.has(index)) return
   const p = paragraphs.value[index]
-  if (p.cnText || p.translating) return
+  if (translationQueue.has(index) || p.cnText || p.translating) return
   translationQueue.add(index)
   p.translating = true 
-  if (translationTimer) clearTimeout(translationTimer)
+  clearTimeout(translationTimer)
   translationTimer = setTimeout(flushTranslationQueue, 600)
 }
 const flushTranslationQueue = async () => {
-  if (translationQueue.size === 0) return
-  const indices = Array.from(translationQueue).sort((a,b) => a - b).slice(0, 10)
+  if (!translationQueue.size) return
+  const indices = [...translationQueue].sort((a, b) => a - b).slice(0, 10)
   indices.forEach(i => translationQueue.delete(i))
-  if (translationQueue.size > 0) translationTimer = setTimeout(flushTranslationQueue, 1000)
+  if (translationQueue.size) translationTimer = setTimeout(flushTranslationQueue, 1000)
   isBatchTranslating.value = true
-  const textsToTranslate = indices.map(i => paragraphs.value[i].enText)
   try {
-    const translatedTexts = await translateParagraphs(textsToTranslate, currentTranslator.value, 'en', 'zh')
-    indices.forEach((idx, arrayIndex) => { if (paragraphs.value[idx]) { paragraphs.value[idx].cnText = translatedTexts[arrayIndex]; paragraphs.value[idx].translating = false } })
-  } catch (error) { message.warning("部分翻译失败，请滚动重试"); indices.forEach(idx => { if (paragraphs.value[idx]) paragraphs.value[idx].translating = false }) } finally { isBatchTranslating.value = false }
+    const translated = await translateParagraphs(indices.map(i => paragraphs.value[i].enText), currentTranslator.value, 'en', 'zh')
+    indices.forEach((idx, i) => { 
+      if (paragraphs.value[idx]) { paragraphs.value[idx].cnText = translated[i]; paragraphs.value[idx].translating = false } 
+    })
+  } catch { 
+    message.warning("部分翻译失败，请滚动重试")
+    indices.forEach(idx => { if (paragraphs.value[idx]) paragraphs.value[idx].translating = false }) 
+  } finally { isBatchTranslating.value = false }
 }
 const handleVocabFileParse = async (e) => {
   const file = e.target.files[0]
@@ -394,17 +378,19 @@ const handleVocabFileParse = async (e) => {
   e.target.value = ''
   try {
     const data = await readExcelFile(file)
-    if (!data || data.length === 0) throw new Error("文件为空")
+    if (!data?.length) throw new Error("文件为空")
     excelSheetData.value = data
-    excelColumns.value = (data[0] || []).map((header, idx) => ({ header: header, preview: `${data[1]?.[idx] || '-'}, ${data[2]?.[idx] || '-'}` }))
+    excelColumns.value = (data[0] || []).map((header, idx) => ({ 
+      header, preview: `${data[1]?.[idx] || '-'}, ${data[2]?.[idx] || '-'}` 
+    }))
     showColumnSelector.value = true
-  } catch (err) { message.error("Excel 解析失败") }
+  } catch { message.error("Excel 解析失败") }
 }
 const confirmColumnSelection = async (colIndex) => {
   showColumnSelector.value = false
   try {
-    const dataRows = excelSheetData.value.length > 1 ? excelSheetData.value.slice(1) : []
-    if (dataRows.length === 0) { message.warning("表格除表头外没有数据"); return }
+    const dataRows = excelSheetData.value.slice(1)
+    if (!dataRows.length) { message.warning("表格除表头外没有数据"); return }
     const words = extractColumnFromData(dataRows, colIndex)
     if (!words.length) { message.warning("该列没有有效数据"); return }
     await setIndexed('vocabs', words)
@@ -414,34 +400,19 @@ const confirmColumnSelection = async (colIndex) => {
     if (vocabHighlightEnabled.value) initObserver()
   } catch (e) { console.error(e); message.error("保存词库失败") }
 }
-const generateHighlightHtml = (text, matches) => {
-  if (!text) return ''
-  if (!matches?.length) return text
-  const sorted = [...matches].sort((a, b) => b.start - a.start)
-  let result = text
-  sorted.forEach(m => {
-    const { start, length } = m
-    if (start < 0 || start + length > result.length) return
-    const word = result.slice(start, start + length)
-    result = result.slice(0, start) + 
-      `<span class="border-b-[1.5px] border-amber-400 text-amber-900/90 cursor-help hover:bg-amber-100/50 hover:text-amber-700 transition-colors">${word}</span>` + 
-      result.slice(start + length)
-  })
-  return result
-}
 const getRawHtml = (para) => (vocabHighlightEnabled.value && para.enTextDisplay) ? para.enTextDisplay : para.enText
 const getChunkHtml = (para, index, originalChunk) => (vocabHighlightEnabled.value && para.chunksDisplay?.[index]) ? para.chunksDisplay[index] : originalChunk
+
 const matchAndHighlight = async (index) => {
   const p = paragraphs.value[index]
-  if (!userVocabList.value.size) return
-  const isChunkMode = segmentationEnabled.value && p.chunks && p.chunks.length > 0
-  const hasCache = isChunkMode ? !!p.chunksDisplay : !!p.enTextDisplay
-  if (hasCache || p.processingVocab) return
+  if (!userVocabList.value.size || p.processingVocab) return
+  const isChunkMode = segmentationEnabled.value && p.chunks?.length > 0
+  if (isChunkMode ? p.chunksDisplay : p.enTextDisplay) return
   p.processingVocab = true
   const targets = isChunkMode ? p.chunks : [p.enText]
   try {
-    const results = await matchVocabulary(Array.from(userVocabList.value), targets)
-    if (results && results.length === targets.length) {
+    const results = await matchVocabulary([...userVocabList.value], targets)
+    if (results?.length === targets.length) {
       if (isChunkMode) p.chunksDisplay = targets.map((t, i) => generateHighlightHtml(t, results[i]))
       else p.enTextDisplay = generateHighlightHtml(targets[0], results[0])
     }
@@ -449,22 +420,18 @@ const matchAndHighlight = async (index) => {
 }
 let observer = null
 const initObserver = () => {
-  if (observer) observer.disconnect()
+  observer?.disconnect()
   observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => { if (entry.isIntersecting) { const idx = Number(entry.target.dataset.index); if (!isNaN(idx)) processParagraph(idx) } })
   }, { rootMargin: '400px 0px 400px 0px', threshold: 0.01 })
-  const elements = document.querySelectorAll('.para-observer-item')
-  if (elements.length > 0) elements.forEach(el => observer.observe(el))
+  document.querySelectorAll('.para-observer-item').forEach(el => observer.observe(el))
 }
 const toggleSegmentation = () => { segmentationEnabled.value = !segmentationEnabled.value; initObserver() }
 const toggleVocab = () => { vocabHighlightEnabled.value = !vocabHighlightEnabled.value; if (vocabHighlightEnabled.value) { if (userVocabList.value.size === 0) message.warning("请先导入词汇库"); initObserver() } }
 onBeforeUnmount(() => {
-  observer?.disconnect()
-  if (translationTimer) clearTimeout(translationTimer)
-  if (audio) { audio.pause(); audio.src = '' }
-  if (abortController) abortController.abort()
+  observer?.disconnect(); clearTimeout(translationTimer)
+  audio.pause(); audio.src = ''; abortController?.abort()
 })
-const speedOptions = [0.75, 1.0, 1.25, 1.5].map(v => ({ label: `${v}x`, value: v }))
 const togglePlay = () => {
   if (isPlaying.value) { audio.pause(); isPlaying.value = false } 
   else { if (currentPlayingIndex.value === -1 && paragraphs.value.length > 0) playParagraph(0); else audio.play().catch(e => console.error("Resume failed", e)) }
@@ -473,13 +440,9 @@ const pauseTTS = () => { audio.pause(); isPlaying.value = false }
 const seekAudio = (e) => { 
   if (!totalTime.value) return
   const rect = e.target.getBoundingClientRect()
-  const percent = (e.clientX - rect.left) / rect.width
-  const newTime = percent * totalTime.value
-  audio.currentTime = newTime
-  currentTime.value = newTime
+  audio.currentTime = currentTime.value = ((e.clientX - rect.left) / rect.width) * totalTime.value
 }
 const onAudioConfigChange = () => { if (currentPlayingIndex.value !== -1) playParagraph(currentPlayingIndex.value, false) }
-const getFormattedRate = () => { const r = ttsSpeed.value; const percent = Math.round((r - 1) * 100); return percent >= 0 ? `+${percent}%` : `${percent}%` }
 const loadAndPlayAudio = async () => {
   const p = paragraphs.value[currentPlayingIndex.value]
   if (!p) return
@@ -489,13 +452,11 @@ const loadAndPlayAudio = async () => {
   if (!textToRead) return
   isBuffering.value = true
   try {
-    if (abortController) abortController.abort()
+    abortController?.abort()
     abortController = new AbortController()
-    const url = await getAudioUrl(abortController,textToRead, voice, getFormattedRate())
-    if (!url) return 
-    audio.src = url
-    audio.play().catch(e => { console.error("Auto play failed", e); isPlaying.value = false })
-  } catch (error) { message.error("TTS 请求失败"); isBuffering.value = false }
+    const url = await getAudioUrl(abortController, textToRead, voice, formatRate(ttsSpeed.value))
+    if (url) { audio.src = url; audio.play().catch(e => { console.error("Auto play failed", e); isPlaying.value = false }) }
+  } catch { message.error("TTS 请求失败"); isBuffering.value = false }
 }
 </script>
 <style scoped>
