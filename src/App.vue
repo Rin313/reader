@@ -25,7 +25,6 @@
                 <div class="flex items-center gap-2">
                     <n-tooltip trigger="hover" :show-arrow="false">
                         <template #trigger>
-                        <!-- 按钮样式扁平化，减少视觉干扰 -->
                         <n-button circle quaternary :type="segmentationEnabled ? 'primary' : 'default'" @click="toggleSegmentation" class="!w-9 !h-9">
                             <template #icon><n-icon size="20"><GitNetworkOutline /></n-icon></template>
                         </n-button>
@@ -170,26 +169,12 @@
 
               <!-- Voice & Speed Controls Group -->
                 <div class="flex items-center gap-1.5 bg-slate-800/50 rounded-lg p-1 border border-slate-700/50">
-                <n-popselect 
-                    v-model:value="currentEnVoice" 
-                    :options="enVoiceOptions" 
-                    trigger="click" 
-                    placement="top" 
-                    virtual-scroll
-                    @update:value="onAudioConfigChange"
-                >
+                <n-popselect v-model:value="currentEnVoice" :options="enVoiceOptions" trigger="click" placement="top" virtual-scroll @update:value="onAudioConfigChange">
                     <button class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-700 text-slate-400 hover:text-indigo-300 transition-colors">
                         <span class="text-[10px] font-bold">EN</span>
                     </button>  
                 </n-popselect>
-                <n-popselect 
-                    v-model:value="currentCnVoice" 
-                    :options="cnVoiceOptions" 
-                    trigger="click" 
-                    placement="top" 
-                    virtual-scroll
-                    @update:value="onAudioConfigChange"
-                >
+                <n-popselect v-model:value="currentCnVoice" :options="cnVoiceOptions" trigger="click" placement="top" virtual-scroll @update:value="onAudioConfigChange">
                     <button class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-700 text-slate-400 hover:text-indigo-300 transition-colors">
                     <span class="text-[10px] font-bold">CN</span>
                     </button>
@@ -205,10 +190,7 @@
 
             <!-- Progress Bar -->
             <div class="px-1 pb-1 pt-1 relative group">
-               <n-progress 
-                type="line" :percentage="playProgress" :show-indicator="false" 
-                color="#818cf8" rail-color="#334155" height="3" class="cursor-pointer"
-              />
+               <n-progress type="line" :percentage="playProgress" :show-indicator="false" color="#818cf8" rail-color="#334155" height="3" class="cursor-pointer" />
               <div class="absolute top-0 left-0 w-full h-full cursor-pointer" @click="seekAudio"></div> 
               <div class="flex justify-between mt-1.5 text-[10px] text-slate-500 font-mono">
                 <span>{{ formatTime(currentTime) }}</span>
@@ -235,7 +217,6 @@
       </n-modal>
       <input type="file" ref="fileInputRef" class="hidden" @change="handleFileChange" accept=".txt,.epub,.mobi,.pdf" />
       <input type="file" ref="vocabInputRef" class="hidden" @change="handleVocabFileParse" accept=".csv,.xlsx" />
-
     </div>
   </n-config-provider>
 </template>
@@ -484,7 +465,9 @@ const generateHighlightHtml = (text, matches) => {
     const { start, length } = m
     if (start < 0 || start + length > result.length) return
     const word = result.slice(start, start + length)
-    result = result.slice(0, start) + `<span class="bg-amber-100 text-amber-800 rounded px-0.5 font-medium cursor-help hover:bg-amber-200 transition-colors">${word}</span>` + result.slice(start + length)
+    result = result.slice(0, start) + 
+      `<span class="border-b-[1.5px] border-amber-400 text-amber-900/90 cursor-help hover:bg-amber-100/50 hover:text-amber-700 transition-colors">${word}</span>` + 
+      result.slice(start + length)
   })
   return result
 }
