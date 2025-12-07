@@ -17,16 +17,7 @@ export const get = (url, params, options = {}) => {
     const finalUrl = queryString ? `${url}?${queryString}` : url;
     return _jsonFetch(finalUrl, options);
 };
-const post = (url, body, options = {}) => _jsonFetch(url, { ...options, method: 'POST', body });
-const BASE_URL = 'http://127.0.0.1:8000'; 
-/**
- * 1. 上传文件并提取文本 (Upload And Extract)
- * Endpoint: POST /upload
- * Content-Type: multipart/form-data
- * 
- * @param {File} fileObj - File 对象 (通常来自 <input type="file">)
- * @returns {Promise<Object>} - {"filename": str, "lines": List[str]}
- */
+const post = (url, body, options = {}) => _jsonFetch(url, { ...options, method: 'POST', body }); 
 export const uploadAndExtract = (fileObj) => {
     const formData = new FormData();
     // OpenAPI 定义中字段名为 "file"
@@ -34,14 +25,14 @@ export const uploadAndExtract = (fileObj) => {
 
     // 直接传入 formData，_jsonFetch 会跳过 JSON 处理，
     // 浏览器会自动为 fetch 设置 Content-Type: multipart/form-data; boundary=...
-    return post(`${BASE_URL}/upload`, formData);
+    return post(`/upload`, formData);
 };
 
 export const segmentSentence = (text) => {
     const payload = {
         text: text
     };
-    return post(`${BASE_URL}/segment`, payload);
+    return post(`/segment`, payload);
 };
 
 /*
@@ -62,7 +53,7 @@ export const matchVocabulary = (vocabList, textList) => {
         vocab_list: vocabList,
         text_list: textList
     };
-    return post(`${BASE_URL}/match_vocab`, payload);
+    return post(`/match_vocab`, payload);
 };
 // return : {"original_text": "string","translated_text": "string"}
 const translate = (text, translator,from_lang,to_lang) => {
@@ -72,7 +63,7 @@ const translate = (text, translator,from_lang,to_lang) => {
         from_lang: from_lang,
         to_lang: to_lang
     };
-    return post(`${BASE_URL}/translate`, payload);
+    return post(`/translate`, payload);
 };
 /**
  * 批量翻译函数
@@ -296,7 +287,7 @@ export const translatorOptions = [
 ]
 export const getAudioUrl = async (abortController,text, voice, rate="+0%") => {
   try {
-    const response = await fetch('http://127.0.0.1:8000/tts', { 
+    const response = await fetch('/tts', { 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, voice: voice, rate }),

@@ -7,7 +7,7 @@
                 <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/30">
                   <n-icon size="20" color="#fff"><BookOutline /></n-icon>
                 </div>
-                <div class="flex flex-col">
+                <div class="hidden sm:flex flex-col">
                   <span class="text-lg font-bold tracking-tight text-slate-800 leading-none font-serif">DeepReader</span>
                 </div>
             </div>
@@ -182,9 +182,6 @@
             <div class="px-1 pb-1 pt-1 relative group">
                <n-progress type="line" :percentage="playProgress" :show-indicator="false" color="#818cf8" rail-color="#334155" height="3" class="cursor-pointer" />
               <div class="absolute top-0 left-0 w-full h-full cursor-pointer" @click="seekAudio"></div> 
-              <div class="flex justify-between mt-1.5 text-[10px] text-slate-500 font-mono">
-                <span>{{ formatTime(currentTime) }}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -223,7 +220,7 @@ import {
 import { 
   uploadAndExtract, segmentSentence, readExcelFile, extractColumnFromData, 
   getIndexed, setIndexed, matchVocabulary, translateParagraphs, translatorOptions,
-  enVoices, cnVoices, formatTime, formatVoiceLabel, getAudioUrl,speedOptions, formatRate, generateHighlightHtml
+  enVoices, cnVoices, formatVoiceLabel, getAudioUrl,speedOptions, formatRate, generateHighlightHtml
 } from './assets/common'
 const themeOverrides = {
   common: { primaryColor: '#4f46e5', primaryColorHover: '#4338ca', borderRadius: '8px' }

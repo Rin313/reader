@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from common import disable_quick_edit_if_win
+from common import disable_quick_edit_if_win,get_local_ip
 from nlp_service import segment_text_content, find_vocab_matches
 from text_processors import extract_pdf, extract_epub, extract_mobi, extract_txt
 from translator import translate_text_wrapper
@@ -23,7 +23,7 @@ from tts import generate_audio_stream
 # --- 配置 ---
 HOST = "0.0.0.0"
 PORT = 8000
-BASE_URL = f"http://{HOST}:{PORT}"
+BASE_URL = f"http://127.0.0.1:{PORT}"
 
 FILE_EXTRACTORS: Dict[str, Callable[[str], List[str]]] = {
     ".txt": extract_txt,
@@ -36,6 +36,11 @@ FILE_EXTRACTORS: Dict[str, Callable[[str], List[str]]] = {
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("System starting up... Models loaded.")
+    local_ip = get_local_ip()
+    print("=" * 50)
+    print(f"本机访问: http://127.0.0.1:{PORT}")
+    print(f"局域网访问: http://{local_ip}:{PORT}")
+    print("=" * 50)
     # 在服务启动时打开浏览器，避免阻塞
     try:
         webbrowser.open(BASE_URL)

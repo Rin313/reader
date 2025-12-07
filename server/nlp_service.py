@@ -5,15 +5,14 @@ from spacy.matcher import PhraseMatcher
 from spacy.util import filter_spans
 
 try:
-    print("Loading NLP model (en_core_web_trf)...")
-    nlp = spacy.load(os.path.join(os.getcwd(), "en_core_web_trf"),disable=["ner"])
+    print("Loading NLP model (en_core_web_lg)...")
+    nlp = spacy.load(os.path.join(os.getcwd(), "en_core_web_lg"),disable=["ner"])
     
 except Exception as e:
     print(f"Model load failed: {e}")
 # 全局缓存
 _CACHED_MATCHER = None
 _CACHED_VOCAB_ID = None
-# 两个接口无法同时执行
 def find_vocab_matches(vocab_list, text_list):
     global _CACHED_MATCHER, _CACHED_VOCAB_ID
     
@@ -21,30 +20,27 @@ def find_vocab_matches(vocab_list, text_list):
     
     if _CACHED_MATCHER is None or _CACHED_VOCAB_ID != current_vocab_id:
         _CACHED_MATCHER = PhraseMatcher(nlp.vocab, attr="LEMMA")
-        
-        # 性能优化：生成 Pattern 时禁用 parser，只保留必要的组件以获取 lemma
+        # 生成 Pattern 时禁用 parser，只保留必要的组件以获取 lemma
         # en_core_web_trf 的 lemmatizer 需要 tagger，tagger 需要 transformer
         # 但 parser 是用于句法分析的，生成单个词的 lemma 时不需要
-        patterns = list(nlp.pipe(vocab_list, disable=["parser"]))
+        patterns = list(nlp.pipe(vocab_list, disable=["parser"],batch_size=1000))
             
         _CACHED_MATCHER.add("VOCAB_LIST", patterns)
         _CACHED_VOCAB_ID = current_vocab_id
 
     results = []
     
-    for doc in nlp.pipe(text_list):
+    for doc in nlp.pipe(text_list, batch_size=100):
         matches = _CACHED_MATCHER(doc)
         spans = [doc[start:end] for _, start, end in matches]
         filtered_spans = filter_spans(spans)
         
-        doc_matches = []
-        for span in filtered_spans:
-            doc_matches.append({
-                "start": span.start_char,
-                "length": len(span.text),
-                "matched_text": span.text,
-                "vocab_lemma": span.lemma_ # 匹配到的词根
-            })
+        doc_matches = [{
+            "start": span.start_char,
+            "length": len(span.text),
+            "matched_text": span.text,
+            "vocab_lemma": span.lemma_
+        } for span in filtered_spans]
         results.append(doc_matches)
 
     return results

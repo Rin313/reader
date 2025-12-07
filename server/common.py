@@ -1,5 +1,5 @@
 import sys
-
+import socket
 def disable_quick_edit_if_win():
     """
     仅在 Windows 下运行：禁用控制台的快速编辑模式，
@@ -27,3 +27,13 @@ def disable_quick_edit_if_win():
             kernel32.SetConsoleMode(hStdIn, new_mode)
         except Exception as e:
             print(f"无法禁用快速编辑模式: {e}")
+def get_local_ip():
+    """获取局域网IP"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "127.0.0.1"
