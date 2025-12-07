@@ -128,11 +128,8 @@
                   {{ para.cnText }}
                 </p>
               </div>
-            </div>
-            
-            <div class="h-32 flex items-center justify-center text-slate-300 text-sm font-serif italic">
-               - End of Text -
-            </div>
+            </div> 
+            <div class="h-32 flex items-center justify-center text-slate-300 text-sm font-serif italic">- End of Text -</div>
           </div>
         </transition>
       </main>
@@ -154,7 +151,6 @@
                   <ReloadOutline />
                 </n-icon>
               </button>
-
               <!-- Text Info -->
               <div class="flex-1 min-w-0 flex flex-col justify-center mr-2">
                 <div class="text-[10px] text-indigo-300 font-bold tracking-wider uppercase mb-0.5 flex items-center gap-2">
@@ -164,7 +160,6 @@
                   {{ currentTextPreview }}
                 </div>
               </div>
-
               <!-- Voice & Speed Controls Group -->
                 <div class="flex items-center gap-1.5 bg-slate-800/50 rounded-lg p-1 border border-slate-700/50">
                 <n-popselect v-model:value="currentEnVoice" :options="enVoiceOptions" trigger="click" placement="top" virtual-scroll @update:value="onAudioConfigChange">
@@ -185,7 +180,6 @@
                 </n-popselect>
                 </div>
             </div>
-
             <!-- Progress Bar -->
             <div class="px-1 pb-1 pt-1 relative group">
                <n-progress type="line" :percentage="playProgress" :show-indicator="false" color="#818cf8" rail-color="#334155" height="3" class="cursor-pointer" />
@@ -218,7 +212,6 @@
     </div>
   </n-config-provider>
 </template>
-
 <script setup>
 import { ref, computed, onBeforeUnmount, shallowRef, onMounted } from 'vue'
 import { 
@@ -233,19 +226,16 @@ import {
   uploadAndExtract, segmentSentence, readExcelFile, extractColumnFromData, 
   getIndexed, setIndexed, matchVocabulary, translateParagraphs, translatorOptions,enVoices,cnVoices,formatTime,formatVoiceLabel,getAudioUrl
 } from './assets/common'
-
 // --- Theme & Config ---
 const themeOverrides = {
   common: { primaryColor: '#4f46e5', primaryColorHover: '#4338ca', borderRadius: '8px' }
 }
 const { message } = createDiscreteApi(['message'], { configProviderProps: { themeOverrides } })
-
 // --- Refs & State ---
 const fileInputRef = ref(null)
 const vocabInputRef = ref(null)
 const paragraphs = ref([]) 
 const viewMode = ref('en')
-
 // 功能开关
 const segmentationEnabled = ref(false)
 const vocabHighlightEnabled = ref(false)
@@ -270,8 +260,6 @@ const currentCnVoice = ref(cnVoices[0]?.ShortName)
 const showColumnSelector = ref(false)
 const excelSheetData = shallowRef([])
 const excelColumns = ref([])
-
-// Computed properties
 const enVoiceOptions = computed(() => enVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName })))
 const cnVoiceOptions = computed(() => cnVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName })))
 const currentTextPreview = computed(() => {
@@ -286,22 +274,16 @@ const handleParagraphClick = (e, index) => {
   if (selection && selection.toString().length > 0) return
   playParagraph(index)
 }
-
 const playParagraph = async (index, resetPhase = true) => {
   if (index < 0 || index >= paragraphs.value.length) return
-  
   currentPlayingIndex.value = index
-  
   if (resetPhase) {
     readingPhase.value = (viewMode.value === 'cn') ? 'cn' : 'en'
   }
-
   const el = document.getElementById(`para-${index}`)
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-
   await loadAndPlayAudio()
 }
-
 const handleTranslatorChange = () => {
   if (translationTimer) clearTimeout(translationTimer)
   translationQueue.clear()
@@ -309,7 +291,6 @@ const handleTranslatorChange = () => {
   paragraphs.value.forEach(p => { p.cnText = ''; p.translating = false })
   setTimeout(() => { initObserver() }, 600)
 }
-
 onMounted(async () => {
   try {
     const data = await getIndexed('vocabs', [])
@@ -336,7 +317,6 @@ onMounted(async () => {
     }
   })
 })
-
 const getParagraphClass = (index) => {
   const isActive = currentPlayingIndex.value === index
   return [
@@ -346,7 +326,6 @@ const getParagraphClass = (index) => {
       : 'bg-white shadow-sm hover:shadow-md hover:border-slate-300 border-transparent'
   ]
 }
-
 const resetReader = () => {
   if(paragraphs.value.length && confirm('确定要清空当前书籍吗？')) {
     pauseTTS()
@@ -357,7 +336,6 @@ const resetReader = () => {
     observer?.disconnect()
   }
 }
-
 const handleFileChange = async (e) => {
   const file = e.target.files[0]
   if (!file) return
@@ -374,9 +352,7 @@ const handleFileChange = async (e) => {
     } else { message.error("未提取到有效文本"); }
   } catch (error) { message.error("解析失败"); console.error(error); } finally { e.target.value = '' }
 }
-
 const handleViewModeChange = () => { initObserver(); if (isPlaying.value) playParagraph(currentPlayingIndex.value) }
-
 const processParagraph = async (index) => {
   const p = paragraphs.value[index]
   if (!p) return
@@ -403,7 +379,6 @@ const processParagraph = async (index) => {
   }
   if (needsChinese && !p.cnText && !p.translating) queueTranslation(index)
 }
-
 const queueTranslation = (index) => {
   if (translationQueue.has(index)) return
   const p = paragraphs.value[index]
@@ -413,7 +388,6 @@ const queueTranslation = (index) => {
   if (translationTimer) clearTimeout(translationTimer)
   translationTimer = setTimeout(flushTranslationQueue, 600)
 }
-
 const flushTranslationQueue = async () => {
   if (translationQueue.size === 0) return
   const indices = Array.from(translationQueue).sort((a,b) => a - b).slice(0, 10)
@@ -426,7 +400,6 @@ const flushTranslationQueue = async () => {
     indices.forEach((idx, arrayIndex) => { if (paragraphs.value[idx]) { paragraphs.value[idx].cnText = translatedTexts[arrayIndex]; paragraphs.value[idx].translating = false } })
   } catch (error) { message.warning("部分翻译失败，请滚动重试"); indices.forEach(idx => { if (paragraphs.value[idx]) paragraphs.value[idx].translating = false }) } finally { isBatchTranslating.value = false }
 }
-
 const handleVocabFileParse = async (e) => {
   const file = e.target.files[0]
   if (!file) return
@@ -453,7 +426,6 @@ const confirmColumnSelection = async (colIndex) => {
     if (vocabHighlightEnabled.value) initObserver()
   } catch (e) { console.error(e); message.error("保存词库失败") }
 }
-
 const generateHighlightHtml = (text, matches) => {
   if (!text) return ''
   if (!matches?.length) return text
@@ -469,10 +441,8 @@ const generateHighlightHtml = (text, matches) => {
   })
   return result
 }
-
 const getRawHtml = (para) => (vocabHighlightEnabled.value && para.enTextDisplay) ? para.enTextDisplay : para.enText
 const getChunkHtml = (para, index, originalChunk) => (vocabHighlightEnabled.value && para.chunksDisplay?.[index]) ? para.chunksDisplay[index] : originalChunk
-
 const matchAndHighlight = async (index) => {
   const p = paragraphs.value[index]
   if (!userVocabList.value.size) return
@@ -489,7 +459,6 @@ const matchAndHighlight = async (index) => {
     }
   } finally { p.processingVocab = false }
 }
-
 let observer = null
 const initObserver = () => {
   if (observer) observer.disconnect()
@@ -499,17 +468,14 @@ const initObserver = () => {
   const elements = document.querySelectorAll('.para-observer-item')
   if (elements.length > 0) elements.forEach(el => observer.observe(el))
 }
-
 const toggleSegmentation = () => { segmentationEnabled.value = !segmentationEnabled.value; initObserver() }
 const toggleVocab = () => { vocabHighlightEnabled.value = !vocabHighlightEnabled.value; if (vocabHighlightEnabled.value) { if (userVocabList.value.size === 0) message.warning("请先导入词汇库"); initObserver() } }
-
 onBeforeUnmount(() => {
   observer?.disconnect()
   if (translationTimer) clearTimeout(translationTimer)
   if (audio) { audio.pause(); audio.src = '' }
   if (abortController) abortController.abort()
 })
-
 const speedOptions = [0.75, 1.0, 1.25, 1.5].map(v => ({ label: `${v}x`, value: v }))
 const togglePlay = () => {
   if (isPlaying.value) { audio.pause(); isPlaying.value = false } 
