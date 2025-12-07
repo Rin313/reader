@@ -1,6 +1,6 @@
 <template>
   <n-config-provider :theme-overrides="themeOverrides">
-    <div class="min-h-screen bg-[#f1f5f9] text-slate-700 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-700">
+    <div class="min-h-screen bg-[#f8fafc] text-slate-700 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-800"> 
       <!-- Header -->
       <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200/50 transition-all duration-300">
         <div class="max-w-screen-xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -98,14 +98,12 @@
                  <n-icon v-if="para.processingSegment" size="16" class="animate-spin text-indigo-300"><GitNetworkOutline /></n-icon>
                  <n-icon v-if="para.translating" size="16" class="animate-spin text-amber-400"><LanguageOutline /></n-icon>
               </div>
-
               <!-- English Content -->
               <div v-if="viewMode !== 'cn'" class="relative">
-                <div class="font-serif text-xl tracking-wide transition-colors duration-300" 
-                     :class="[
-                       segmentationEnabled ? 'leading-[2.6]' : 'leading-[1.8]',
-                       (currentPlayingIndex === index && readingPhase === 'en') ? 'text-indigo-900 font-medium' : 'text-slate-800'
-                     ]">
+                <div class="font-serif text-xl tracking-wide leading-[1.95] transition-colors duration-300"
+                  :class="[
+                    (currentPlayingIndex === index && readingPhase === 'en') ? 'text-indigo-900 font-medium' : 'text-slate-800'
+                  ]">
                   <template v-if="segmentationEnabled && para.chunks && para.chunks.length > 0">
                     <span 
                       v-for="(chunk, cIndex) in para.chunks" 
@@ -201,7 +199,7 @@
       </transition>
       <n-modal v-model:show="showColumnSelector" preset="card" title="导入配置" class="max-w-md w-[90vw]">
           <div class="max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar">
-           <p class="text-slate-500 text-sm mb-4">请选择包含英文单词的那一列进行导入：</p>
+           <p class="text-slate-500 text-sm mb-4">请选择包含英文单词的一列：</p>
            <div class="grid grid-cols-1 gap-2">
              <div 
                 v-for="(col, idx) in excelColumns" 
