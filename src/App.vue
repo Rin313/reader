@@ -1,8 +1,8 @@
 <template>
   <n-config-provider :theme-overrides="themeOverrides">
     <div class="min-h-screen bg-[#f8fafc] text-slate-700 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-800"> 
-      <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200/50 transition-all duration-300">
-        <div class="max-w-screen-xl mx-auto px-6 h-16 flex items-center justify-between">
+      <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-lg border-b border-slate-200/60 transition-all duration-300">
+        <div class="max-w-screen-2xl mx-auto px-6 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3 cursor-pointer select-none group opacity-90 hover:opacity-100 transition-opacity" @click="resetReader">
                 <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/30">
                   <n-icon size="20" color="#fff"><BookOutline /></n-icon>
@@ -50,7 +50,7 @@
             </div>
         </div>
       </header>
-      <main class="flex-1 max-w-4xl mx-auto w-full px-6 py-12 pb-48 relative">
+      <main class="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-8 py-8 pb-48 relative">
         <transition name="fade" mode="out-in">
           <div v-if="paragraphs.length === 0" class="flex flex-col items-center justify-center py-20 select-none min-h-[60vh]">
             <div 
@@ -64,16 +64,17 @@
               <p class="text-base text-slate-400 mb-8 font-light">点击上传 TXT, EPUB, MOBI, PDF</p>
             </div>
           </div>
-          <div v-else class="space-y-6">
-            <!-- Info Bar -->
-            <div class="sticky top-20 z-20 flex justify-between items-center px-4 py-2 bg-[#f1f5f9]/90 backdrop-blur-sm text-xs text-slate-400 rounded-lg">
-              <span>{{ paragraphs.length }} Paragraphs</span>
-              <span v-if="isBatchTranslating" class="text-amber-600 flex items-center gap-1">
-                <n-icon class="animate-spin"><ReloadOutline /></n-icon> Translating...
-              </span>
-              <span v-if="isPlaying || isBuffering" class="text-indigo-500 font-medium flex items-center gap-1" :class="{'animate-pulse': isBuffering}">
-                <n-icon><PulseOutline /></n-icon> {{ isBuffering ? 'Loading...' : 'Reading...' }}
-              </span>
+          <div v-else class="space-y-2">
+            <div class="sticky top-16 z-20 flex justify-between items-center px-2 py-1.5 bg-[#f8fafc]/95 backdrop-blur border-b border-slate-100 mb-6 text-xs text-slate-400 font-mono">
+              <span class="pl-2">{{ paragraphs.length }} Paragraphs</span>
+              <div class="flex gap-4 pr-2">
+                <span v-if="isBatchTranslating" class="text-amber-600 flex items-center gap-1">
+                    <n-icon class="animate-spin"><ReloadOutline /></n-icon> Translating...
+                </span>
+                <span v-if="isPlaying || isBuffering" class="text-indigo-500 font-medium flex items-center gap-1" :class="{'animate-pulse': isBuffering}">
+                    <n-icon><PulseOutline /></n-icon> {{ isBuffering ? 'Loading...' : 'Reading...' }}
+                </span>
+              </div>
             </div>
             <!-- Paragraphs -->
             <div 
@@ -81,40 +82,44 @@
               :key="para.id"
               :id="`para-${index}`"
               :data-index="index"
-              class="para-observer-item relative p-6 sm:p-8 rounded-2xl transition-all duration-300 border scroll-m-32 hover:border-indigo-200"
+              class="para-observer-item relative rounded-xl transition-all duration-300 border-l-4 scroll-m-32"
               :class="getParagraphClass(index)"
               @click="handleParagraphClick($event, index)"
             >
-              <div v-if="currentPlayingIndex === index" class="absolute left-0 top-8 bottom-8 w-1 bg-indigo-500 rounded-r-full"></div>
-              <span class="absolute top-4 left-4 text-[10px] font-mono text-slate-300 select-none">#{{ index + 1 }}</span>
-              <div class="absolute top-8 right-6 flex gap-2 opacity-50">
+              <span class="absolute top-2 left-1 sm:left-2 text-[9px] font-mono text-slate-300 select-none opacity-0 group-hover:opacity-100 transition-opacity">#{{ index + 1 }}</span>
+              <div class="absolute top-2 right-2 flex gap-2 opacity-50">
                  <n-icon v-if="para.processingSegment" size="14" class="animate-spin text-indigo-400"><GitNetworkOutline /></n-icon>
                  <n-icon v-if="para.translating" size="14" class="animate-spin text-amber-400"><LanguageOutline /></n-icon>
               </div>
               <!-- English Content -->
-              <div v-if="viewMode !== 'cn'" class="relative">
-                <div class="font-serif text-xl tracking-wide leading-[1.95] transition-colors duration-300"
+              <div v-if="viewMode !== 'cn'" class="relative px-2 sm:px-6 py-3 sm:py-4">
+                <div class="en-reading-text text-xl tracking-wide leading-[1.9] transition-colors duration-300"
                   :class="[
                     (currentPlayingIndex === index && readingPhase === 'en') ? 'text-indigo-900 font-medium' : 'text-slate-800'
                   ]">
                   <template v-if="segmentationEnabled && para.chunks && para.chunks.length > 0">
-                    <span 
-                      v-for="(chunk, cIndex) in para.chunks" 
-                      :key="cIndex"
-                      class="inline box-decoration-clone mx-[5px] px-1.5 py-0.5 rounded transition-colors duration-200 cursor-text hover:bg-indigo-100/50 hover:text-indigo-900"
-                      v-html="getChunkHtml(para, cIndex, chunk)"
-                    ></span>
+                    <template v-for="(chunk, cIndex) in para.chunks" :key="cIndex">
+                      <span 
+                        class="phrase-chunk"
+                        v-html="getChunkHtml(para, cIndex, chunk)"
+                      ></span><span 
+                        v-if="cIndex < para.chunks.length - 1" 
+                        class="phrase-sep"
+                        aria-hidden="true"
+                      >·</span>
+                    </template>
                   </template>
                   <template v-else>
                      <span v-html="getRawHtml(para)"></span>
                   </template>
                 </div>
               </div>
-              <!-- 中文内容 -->
-              <div v-if="viewMode !== 'en'" class="mt-4 pt-4 border-t border-dashed border-slate-200">
-                <div v-if="!para.cnText && para.translating" class="space-y-2 animate-pulse">
-                   <div class="h-4 bg-slate-200 rounded w-3/4"></div>
-                   <div class="h-4 bg-slate-200 rounded w-1/2"></div>
+              <!-- Chinese Content-->
+              <div v-if="viewMode !== 'en'" class="px-2 sm:px-6 pb-4 pt-1">
+                <div v-if="viewMode === 'dual'" class="mb-3 border-t border-dashed border-slate-100 w-full"></div>
+                <div v-if="!para.cnText && para.translating" class="space-y-2 animate-pulse mt-2">
+                   <div class="h-4 bg-slate-100 rounded w-3/4"></div>
+                   <div class="h-4 bg-slate-100 rounded w-1/2"></div>
                 </div>
                 <p v-else class="text-base leading-8 font-sans text-justify transition-colors duration-300"
                    :class="(currentPlayingIndex === index && readingPhase === 'cn') ? 'text-indigo-700 font-medium' : 'text-slate-500 hover:text-slate-700'">
@@ -302,8 +307,8 @@ const getParagraphClass = (index) => {
   return [
     'group',
     isActive 
-      ? 'bg-white shadow-xl shadow-indigo-100/40 ring-1 ring-indigo-50 z-10' 
-      : 'bg-white hover:bg-slate-50/50 shadow-sm hover:shadow-md border-transparent hover:border-slate-100'
+      ? 'bg-white shadow-xl shadow-indigo-100/50 border-indigo-500/30 z-10' 
+      : 'bg-white/60 hover:bg-white border-transparent hover:border-slate-200 hover:shadow-sm'
   ]
 }
 const resetReader = () => {
@@ -467,4 +472,37 @@ const loadAndPlayAudio = async () => {
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+/* 英文阅读字体 - 使用具有文学感的衬线字体 */
+.en-reading-text {
+  font-family: 'Georgia', 'Cambria', 'Palatino Linotype', 'Palatino', 'Book Antiqua', 'Times New Roman', serif;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* 意群分块 - 保持正常文本流，允许自然换行 */
+.phrase-chunk {
+  transition: background-color 0.2s ease, color 0.2s ease;
+  border-radius: 3px;
+  padding: 1px 3px;
+  margin: -1px -3px;
+}
+
+.phrase-chunk:hover {
+  background-color: rgba(99, 102, 241, 0.08);
+  color: #312e81;
+}
+
+/* 意群分隔符 - 轻量视觉提示，不影响文本流 */
+.phrase-sep {
+  color: #cbd5e1;
+  margin: 0 0.4em;
+  font-weight: 300;
+  font-size: 0.7em;
+  vertical-align: middle;
+  user-select: none;
+  opacity: 0.7;
+}
 </style>
