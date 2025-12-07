@@ -68,7 +68,7 @@
                 <n-icon size="40"><CloudUploadOutline /></n-icon>
               </div>
               <h2 class="text-xl font-bold text-slate-700 mb-2 group-hover:text-indigo-600 transition-colors">点击上传书籍</h2>
-              <p class="text-sm text-slate-400 mb-6">支持 TXT, EPUB, MOBI, PDF<br>智能提取文本与意群分析</p>
+              <p class="text-sm text-slate-400 mb-6">支持 TXT, EPUB, MOBI, PDF</p>
             </div>
           </div>
           <!-- 阅读区域 -->
@@ -217,7 +217,7 @@
       <!-- 模态框 -->
       <n-modal v-model:show="showColumnSelector" preset="card" title="选择单词所在的列" class="max-w-lg w-[90vw]">
           <div class="max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar">
-           <p class="text-slate-500 text-sm mb-4">检测到以下表格列，请选择包含英文单词的那一列进行导入：</p>
+           <p class="text-slate-500 text-sm mb-4">请选择包含英文单词的那一列进行导入：</p>
            <div class="grid grid-cols-1 gap-2">
              <div 
                 v-for="(col, idx) in excelColumns" 
@@ -474,7 +474,7 @@ const confirmColumnSelection = async (colIndex) => {
     await setIndexed('vocabs', words)
     userVocabList.value = new Set(words)
     paragraphs.value.forEach(p => { p.enTextDisplay = null; p.chunksDisplay = null })
-    message.success(`已导入 ${words.length} 个生词`)
+    message.success(`已导入 ${words.length} 个词汇`)
     if (vocabHighlightEnabled.value) initObserver()
   } catch (e) { console.error(e); message.error("保存词库失败") }
 }

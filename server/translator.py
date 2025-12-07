@@ -1,3 +1,5 @@
+import os
+os.environ["translators_default_region"] = "EN"
 import translators as ts
 import random
 
