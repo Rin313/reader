@@ -1,28 +1,57 @@
-# name: Build Mac App
-# on:
-#   push:
-#     branches: [ "main", "master" ]
-#   workflow_dispatch: # 允许手动点击按钮触发
-# jobs:
-#   build-mac:
-#     runs-on: macos-latest # 使用 GitHub 提供的最新 macOS 环境
-#     steps:
-#     - name: Checkout code
-#       uses: actions/checkout@v3
-#     - name: Set up Python
-#       uses: actions/setup-python@v4
-#       with:
-#         python-version: '3.13'
-#     - name: Install dependencies
-#       run: |
-#         python -m pip install --upgrade pip
-#         pip install -r requirements.txt
-#         pip install pyinstaller
-#     - name: Build with PyInstaller
-#       run: |
-#         pyinstaller main.spec
-#     - name: Archive Artifacts
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: DeepReader-Mac
-#         path: dist/DeepReader/ # 上传打包好的文件夹
+name: Build Mac App
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    
+    defaults:
+      run:
+        working-directory: server
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller main.spec --noconfirm --clean
+    # - name: Create DMG
+    #   run: |
+    #     # 创建 DMG 镜像
+    #     hdiutil create -volname "DeepReader" \
+    #                    -srcfolder dist/DeepReader \
+    #                    -ov -format UDZO \
+    #                    dist/DeepReader-Mac.dmg
+    #     ls -lh dist/DeepReader-Mac.dmg
+        
+    # - name: Archive Artifacts
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: DeepReader-Mac
+    #     path: server/dist/DeepReader-Mac.dmg
+    - name: Compress artifacts  # 👈 新增压缩步骤
+      run: |
+        cd dist
+        zip -r -9 DeepReader-Mac.zip DeepReader/
+        ls -lh DeepReader-Mac.zip  # 显示压缩后大小
+        
+    - name: Archive Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: DeepReader-Mac
+        path: server/dist/DeepReader-Mac.zip  # 👈 上传 zip 文件
