@@ -1,7 +1,6 @@
 <template>
   <n-config-provider :theme-overrides="themeOverrides">
     <div class="min-h-screen bg-[#f8fafc] text-slate-700 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-800"> 
-      <!-- Header -->
       <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200/50 transition-all duration-300">
         <div class="max-w-screen-xl mx-auto px-6 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3 cursor-pointer select-none group opacity-90 hover:opacity-100 transition-opacity" @click="resetReader">
@@ -16,16 +15,16 @@
             <div class="flex items-center gap-4">
                 <div class="hidden sm:flex items-center p-1 bg-slate-100/80 rounded-lg border border-slate-200/50">
                   <n-radio-group v-model:value="viewMode" size="small" @update:value="handleViewModeChange">
-                      <n-radio-button value="en" class="!px-4 !font-medium">English</n-radio-button>
-                      <n-radio-button value="dual" class="!px-4 !font-medium">对照</n-radio-button>
-                      <n-radio-button value="cn" class="!px-4 !font-medium">中文</n-radio-button>
+                      <n-radio-button value="en" class="!px-3">EN</n-radio-button>
+                      <n-radio-button value="dual" class="!px-3">Dual</n-radio-button>
+                      <n-radio-button value="cn" class="!px-3">CN</n-radio-button>
                   </n-radio-group>
                 </div>
                 <n-divider vertical class="!h-5 !bg-slate-300 hidden sm:block" />
                 <div class="flex items-center gap-2">
                     <n-tooltip trigger="hover" :show-arrow="false">
                         <template #trigger>
-                        <n-button circle quaternary :type="segmentationEnabled ? 'primary' : 'default'" @click="toggleSegmentation" class="!w-9 !h-9">
+                        <n-button circle quaternary :type="segmentationEnabled ? 'primary' : 'default'" @click="toggleSegmentation">
                             <template #icon><n-icon size="20"><GitNetworkOutline /></n-icon></template>
                         </n-button>
                         </template>
@@ -33,25 +32,20 @@
                     </n-tooltip>
                     <n-tooltip trigger="hover" :show-arrow="false">
                         <template #trigger>
-                        <n-button circle quaternary :type="vocabHighlightEnabled ? 'warning' : 'default'" @click="toggleVocab" class="!w-9 !h-9">
+                        <n-button circle quaternary :type="vocabHighlightEnabled ? 'warning' : 'default'" @click="toggleVocab">
                             <template #icon><n-icon size="20"><SearchOutline /></n-icon></template>
                         </n-button>
                         </template>
                         {{ vocabHighlightEnabled ? '关闭生词高亮' : '开启生词高亮' }}
                     </n-tooltip>
                     <n-popselect v-model:value="currentTranslator" :options="translatorOptions" trigger="click" @update:value="handleTranslatorChange">
-                        <n-button circle quaternary type="default" class="!w-9 !h-9">
+                        <n-button circle quaternary type="default">
                             <template #icon><n-icon size="20"><LanguageOutline /></n-icon></template>
                         </n-button>
                     </n-popselect>
-                    <n-tooltip trigger="hover" :show-arrow="false">
-                        <template #trigger>
-                        <n-button circle quaternary type="default" @click="vocabInputRef.click()" class="!w-9 !h-9">
-                            <template #icon><n-icon size="18"><LibraryOutline /></n-icon></template>
-                        </n-button>
-                        </template>
-                        导入词汇库
-                    </n-tooltip>
+                    <n-button circle quaternary type="default" @click="vocabInputRef.click()">
+                        <template #icon><n-icon size="20"><LibraryOutline /></n-icon></template>
+                    </n-button>
                 </div>
             </div>
         </div>
@@ -67,7 +61,7 @@
                 <n-icon size="48" class="opacity-80 group-hover:opacity-100"><CloudUploadOutline /></n-icon>
               </div>
               <h2 class="text-2xl font-serif font-bold text-slate-700 mb-3 group-hover:text-indigo-700 transition-colors">开启沉浸式阅读</h2>
-              <p class="text-base text-slate-400 mb-8 font-light">拖入或点击上传 TXT, EPUB, MOBI, PDF</p>
+              <p class="text-base text-slate-400 mb-8 font-light">点击上传 TXT, EPUB, MOBI, PDF</p>
             </div>
           </div>
           <div v-else class="space-y-6">
@@ -81,7 +75,7 @@
                 <n-icon><PulseOutline /></n-icon> {{ isBuffering ? 'Loading...' : 'Reading...' }}
               </span>
             </div>
-            <!-- Paragraph List -->
+            <!-- Paragraphs -->
             <div 
               v-for="(para, index) in paragraphs" 
               :key="para.id"
@@ -93,10 +87,9 @@
             >
               <div v-if="currentPlayingIndex === index" class="absolute left-0 top-8 bottom-8 w-1 bg-indigo-500 rounded-r-full"></div>
               <span class="absolute top-4 left-4 text-[10px] font-mono text-slate-300 select-none">#{{ index + 1 }}</span>
-
-              <div class="absolute top-4 right-4 flex gap-2">
-                 <n-icon v-if="para.processingSegment" size="16" class="animate-spin text-indigo-300"><GitNetworkOutline /></n-icon>
-                 <n-icon v-if="para.translating" size="16" class="animate-spin text-amber-400"><LanguageOutline /></n-icon>
+              <div class="absolute top-8 right-6 flex gap-2 opacity-50">
+                 <n-icon v-if="para.processingSegment" size="14" class="animate-spin text-indigo-400"><GitNetworkOutline /></n-icon>
+                 <n-icon v-if="para.translating" size="14" class="animate-spin text-amber-400"><LanguageOutline /></n-icon>
               </div>
               <!-- English Content -->
               <div v-if="viewMode !== 'cn'" class="relative">
@@ -108,7 +101,7 @@
                     <span 
                       v-for="(chunk, cIndex) in para.chunks" 
                       :key="cIndex"
-                      class="inline-block mr-2 mb-1 px-1.5 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-50 border-b-2 border-slate-200 hover:border-indigo-300 cursor-text transition-colors text-[0.95em]"
+                      class="inline box-decoration-clone mx-[5px] px-1.5 py-0.5 rounded transition-colors duration-200 cursor-text hover:bg-indigo-100/50 hover:text-indigo-900"
                       v-html="getChunkHtml(para, cIndex, chunk)"
                     ></span>
                   </template>
@@ -202,7 +195,7 @@
                 @click="confirmColumnSelection(idx)"
              >
                 <span class="font-bold text-slate-700 text-sm">{{ col.header || `第 ${idx + 1} 列` }}</span>
-                <span class="text-xs text-slate-400 mt-1 truncate">预览: {{ col.preview }}</span>
+                <span class="text-xs text-slate-400 mt-1 truncate">{{ col.preview }}</span>
              </div>
            </div>
         </div>
@@ -226,26 +219,21 @@ import {
   uploadAndExtract, segmentSentence, readExcelFile, extractColumnFromData, 
   getIndexed, setIndexed, matchVocabulary, translateParagraphs, translatorOptions,enVoices,cnVoices,formatTime,formatVoiceLabel,getAudioUrl
 } from './assets/common'
-// --- Theme & Config ---
 const themeOverrides = {
   common: { primaryColor: '#4f46e5', primaryColorHover: '#4338ca', borderRadius: '8px' }
 }
 const { message } = createDiscreteApi(['message'], { configProviderProps: { themeOverrides } })
-// --- Refs & State ---
 const fileInputRef = ref(null)
 const vocabInputRef = ref(null)
 const paragraphs = ref([]) 
 const viewMode = ref('en')
-// 功能开关
 const segmentationEnabled = ref(false)
 const vocabHighlightEnabled = ref(false)
 const userVocabList = shallowRef(new Set())
-// 翻译相关状态
 const currentTranslator = ref('google')
 const translationQueue = new Set() 
 let translationTimer = null
 const isBatchTranslating = ref(false)
-// TTS 状态
 let abortController = null
 const audio = new Audio()
 const isPlaying = ref(false)
@@ -322,8 +310,8 @@ const getParagraphClass = (index) => {
   return [
     'group',
     isActive 
-      ? 'bg-white shadow-xl shadow-indigo-100/60 border-indigo-200 ring-1 ring-indigo-100 z-10' 
-      : 'bg-white shadow-sm hover:shadow-md hover:border-slate-300 border-transparent'
+      ? 'bg-white shadow-xl shadow-indigo-100/40 ring-1 ring-indigo-50 z-10' 
+      : 'bg-white hover:bg-slate-50/50 shadow-sm hover:shadow-md border-transparent hover:border-slate-100'
   ]
 }
 const resetReader = () => {
