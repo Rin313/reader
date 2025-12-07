@@ -1,54 +1,54 @@
 <template>
   <n-config-provider :theme-overrides="themeOverrides">
-    <div class="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-700">
+    <div class="min-h-screen bg-[#f1f5f9] text-slate-700 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-700">
       <!-- Header -->
-      <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/60 transition-all duration-300 supports-backdrop-blur:bg-white/60">
-        <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3 cursor-pointer select-none group" @click="resetReader">
-                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-                <n-icon size="24" color="#fff"><BookOutline /></n-icon>
+      <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200/50 transition-all duration-300">
+        <div class="max-w-screen-xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3 cursor-pointer select-none group opacity-90 hover:opacity-100 transition-opacity" @click="resetReader">
+                <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                  <n-icon size="20" color="#fff"><BookOutline /></n-icon>
                 </div>
                 <div class="flex flex-col">
-                <span class="text-lg font-bold tracking-tight text-slate-900 leading-none">DeepReader</span>
-                <span class="text-[10px] text-slate-500 font-medium tracking-wide uppercase">Immersive Learning</span>
+                  <span class="text-lg font-bold tracking-tight text-slate-800 leading-none font-serif">DeepReader</span>
                 </div>
             </div>
-            <!-- Header Controls -->
+            <!-- Controls -->
             <div class="flex items-center gap-4">
-                <div class="hidden sm:block p-1 bg-slate-100 rounded-lg">
-                <n-radio-group v-model:value="viewMode" size="small" @update:value="handleViewModeChange">
-                    <n-radio-button value="en" class="px-3">EN</n-radio-button>
-                    <n-radio-button value="dual" class="px-3">Dual</n-radio-button>
-                    <n-radio-button value="cn" class="px-3">CN</n-radio-button>
-                </n-radio-group>
+                <div class="hidden sm:flex items-center p-1 bg-slate-100/80 rounded-lg border border-slate-200/50">
+                  <n-radio-group v-model:value="viewMode" size="small" @update:value="handleViewModeChange">
+                      <n-radio-button value="en" class="!px-4 !font-medium">English</n-radio-button>
+                      <n-radio-button value="dual" class="!px-4 !font-medium">对照</n-radio-button>
+                      <n-radio-button value="cn" class="!px-4 !font-medium">中文</n-radio-button>
+                  </n-radio-group>
                 </div>
-                <n-divider vertical class="!h-6 !bg-slate-200 hidden sm:block" />
+                <n-divider vertical class="!h-5 !bg-slate-300 hidden sm:block" />
                 <div class="flex items-center gap-2">
                     <n-tooltip trigger="hover" :show-arrow="false">
                         <template #trigger>
-                        <n-button circle secondary :type="segmentationEnabled ? 'primary' : 'default'" @click="toggleSegmentation" class="!w-9 !h-9">
-                            <template #icon><n-icon size="18"><GitNetworkOutline /></n-icon></template>
+                        <!-- 按钮样式扁平化，减少视觉干扰 -->
+                        <n-button circle quaternary :type="segmentationEnabled ? 'primary' : 'default'" @click="toggleSegmentation" class="!w-9 !h-9">
+                            <template #icon><n-icon size="20"><GitNetworkOutline /></n-icon></template>
                         </n-button>
                         </template>
-                        {{ segmentationEnabled ? '关闭意群分割' : '开启意群分割' }}
+                        {{ segmentationEnabled ? '关闭意群辅助' : '开启意群辅助' }}
                     </n-tooltip>
                     <n-tooltip trigger="hover" :show-arrow="false">
                         <template #trigger>
-                        <n-button circle secondary :type="vocabHighlightEnabled ? 'warning' : 'default'" @click="toggleVocab" class="!w-9 !h-9">
-                            <template #icon><n-icon size="18"><SearchOutline /></n-icon></template>
+                        <n-button circle quaternary :type="vocabHighlightEnabled ? 'warning' : 'default'" @click="toggleVocab" class="!w-9 !h-9">
+                            <template #icon><n-icon size="20"><SearchOutline /></n-icon></template>
                         </n-button>
                         </template>
                         {{ vocabHighlightEnabled ? '关闭生词高亮' : '开启生词高亮' }}
                     </n-tooltip>
                     <n-popselect v-model:value="currentTranslator" :options="translatorOptions" trigger="click" @update:value="handleTranslatorChange">
-                        <n-button circle secondary type="default" class="!w-9 !h-9">
-                            <template #icon><n-icon size="18"><LanguageOutline /></n-icon></template>
+                        <n-button circle quaternary type="default" class="!w-9 !h-9">
+                            <template #icon><n-icon size="20"><LanguageOutline /></n-icon></template>
                         </n-button>
                     </n-popselect>
                     <n-tooltip trigger="hover" :show-arrow="false">
                         <template #trigger>
-                        <n-button circle secondary type="default" @click="vocabInputRef.click()" class="!w-9 !h-9">
-                            <template #icon><n-icon size="16"><LibraryOutline /></n-icon></template>
+                        <n-button circle quaternary type="default" @click="vocabInputRef.click()" class="!w-9 !h-9">
+                            <template #icon><n-icon size="18"><LibraryOutline /></n-icon></template>
                         </n-button>
                         </template>
                         导入词汇库
@@ -57,23 +57,23 @@
             </div>
         </div>
       </header>
-      <main class="flex-1 max-w-3xl mx-auto w-full px-4 py-10 pb-48 relative">
+      <main class="flex-1 max-w-4xl mx-auto w-full px-6 py-12 pb-48 relative">
         <transition name="fade" mode="out-in">
           <div v-if="paragraphs.length === 0" class="flex flex-col items-center justify-center py-20 select-none min-h-[60vh]">
             <div 
-              class="w-full max-w-lg border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/30 bg-white rounded-3xl p-12 flex flex-col items-center text-center transition-all duration-300 cursor-pointer group"
+              class="w-full max-w-2xl border border-dashed border-slate-300 hover:border-indigo-400 hover:bg-white bg-slate-50/50 rounded-3xl p-16 flex flex-col items-center text-center transition-all duration-500 cursor-pointer group"
               @click="fileInputRef.click()"
             >
-              <div class="w-20 h-20 bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100 group-hover:scale-110 transition-all rounded-full flex items-center justify-center mb-6 shadow-sm">
-                <n-icon size="40"><CloudUploadOutline /></n-icon>
+              <div class="w-24 h-24 bg-white text-indigo-500 group-hover:text-indigo-600 group-hover:scale-105 group-hover:shadow-xl transition-all duration-500 rounded-2xl flex items-center justify-center mb-8 shadow-sm border border-slate-100">
+                <n-icon size="48" class="opacity-80 group-hover:opacity-100"><CloudUploadOutline /></n-icon>
               </div>
-              <h2 class="text-xl font-bold text-slate-700 mb-2 group-hover:text-indigo-600 transition-colors">点击上传书籍</h2>
-              <p class="text-sm text-slate-400 mb-6">支持 TXT, EPUB, MOBI, PDF</p>
+              <h2 class="text-2xl font-serif font-bold text-slate-700 mb-3 group-hover:text-indigo-700 transition-colors">开启沉浸式阅读</h2>
+              <p class="text-base text-slate-400 mb-8 font-light">拖入或点击上传 TXT, EPUB, MOBI, PDF</p>
             </div>
           </div>
-          <!-- 阅读区域 -->
-          <div v-else class="space-y-8">
-            <div class="sticky top-20 z-20 flex justify-between items-center px-2 py-2 bg-[#f8fafc]/90 backdrop-blur text-xs text-slate-500 border-b border-slate-200/50">
+          <div v-else class="space-y-6">
+            <!-- Info Bar -->
+            <div class="sticky top-20 z-20 flex justify-between items-center px-4 py-2 bg-[#f1f5f9]/90 backdrop-blur-sm text-xs text-slate-400 rounded-lg">
               <span>{{ paragraphs.length }} Paragraphs</span>
               <span v-if="isBatchTranslating" class="text-amber-600 flex items-center gap-1">
                 <n-icon class="animate-spin"><ReloadOutline /></n-icon> Translating...
@@ -82,6 +82,7 @@
                 <n-icon><PulseOutline /></n-icon> {{ isBuffering ? 'Loading...' : 'Reading...' }}
               </span>
             </div>
+            <!-- Paragraph List -->
             <div 
               v-for="(para, index) in paragraphs" 
               :key="para.id"
@@ -98,7 +99,8 @@
                  <n-icon v-if="para.processingSegment" size="16" class="animate-spin text-indigo-300"><GitNetworkOutline /></n-icon>
                  <n-icon v-if="para.translating" size="16" class="animate-spin text-amber-400"><LanguageOutline /></n-icon>
               </div>
-              <!-- 英文内容 -->
+
+              <!-- English Content -->
               <div v-if="viewMode !== 'cn'" class="relative">
                 <div class="font-serif text-xl tracking-wide transition-colors duration-300" 
                      :class="[
@@ -131,7 +133,9 @@
               </div>
             </div>
             
-            <div class="h-24"></div>
+            <div class="h-32 flex items-center justify-center text-slate-300 text-sm font-serif italic">
+               - End of Text -
+            </div>
           </div>
         </transition>
       </main>
@@ -213,9 +217,7 @@
           </div>
         </div>
       </transition>
-
-      <!-- 模态框 -->
-      <n-modal v-model:show="showColumnSelector" preset="card" title="选择单词所在的列" class="max-w-lg w-[90vw]">
+      <n-modal v-model:show="showColumnSelector" preset="card" title="导入配置" class="max-w-md w-[90vw]">
           <div class="max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar">
            <p class="text-slate-500 text-sm mb-4">请选择包含英文单词的那一列进行导入：</p>
            <div class="grid grid-cols-1 gap-2">
@@ -295,16 +297,14 @@ const enVoiceOptions = computed(() => enVoices.map(v => ({ label: formatVoiceLab
 const cnVoiceOptions = computed(() => cnVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName })))
 const currentTextPreview = computed(() => {
   const p = paragraphs.value[currentPlayingIndex.value]
-  if (!p) return 'Ready to play'
+  if (!p) return 'Ready to start'
   if (readingPhase.value === 'cn' && p.cnText) return p.cnText
   return p.enText
 })
 const playProgress = computed(() => totalTime.value > 0 ? (currentTime.value / totalTime.value) * 100 : 0)
 const handleParagraphClick = (e, index) => {
   const selection = window.getSelection()
-  // 如果用户选择了文本，则只进行复制操作，不触发播放
   if (selection && selection.toString().length > 0) return
-  // 正常点击，触发播放逻辑
   playParagraph(index)
 }
 
@@ -324,11 +324,9 @@ const playParagraph = async (index, resetPhase = true) => {
 }
 
 const handleTranslatorChange = () => {
-  // 停止当前正在进行的批处理倒计时和队列
   if (translationTimer) clearTimeout(translationTimer)
   translationQueue.clear()
   isBatchTranslating.value = false
-  // 清空所有段落的中文翻译，并重置状态
   paragraphs.value.forEach(p => { p.cnText = ''; p.translating = false })
   setTimeout(() => { initObserver() }, 600)
 }
@@ -413,12 +411,10 @@ const processParagraph = async (index) => {
         if (res && res.segments && res.segments.length > 0) {
             p.chunks = res.segments
         } else {
-            p.chunks = null // 无效或空，保持 null，触发前端回退到 RawHtml
+            p.chunks = null 
         }
       } 
-      catch { 
-        p.chunks = null
-      } 
+      catch { p.chunks = null } 
       finally { 
         p.processingSegment = false; 
         if (vocabHighlightEnabled.value) matchAndHighlight(index) 
@@ -488,7 +484,7 @@ const generateHighlightHtml = (text, matches) => {
     const { start, length } = m
     if (start < 0 || start + length > result.length) return
     const word = result.slice(start, start + length)
-    result = result.slice(0, start) + `<span class="bg-amber-200 text-amber-900 border-b-2 border-amber-300 rounded-sm px-0.5 mx-0.5 font-semibold cursor-help hover:bg-amber-300">${word}</span>` + result.slice(start + length)
+    result = result.slice(0, start) + `<span class="bg-amber-100 text-amber-800 rounded px-0.5 font-medium cursor-help hover:bg-amber-200 transition-colors">${word}</span>` + result.slice(start + length)
   })
   return result
 }
@@ -513,7 +509,6 @@ const matchAndHighlight = async (index) => {
   } finally { p.processingVocab = false }
 }
 
-// --- 懒加载观察者 ---
 let observer = null
 const initObserver = () => {
   if (observer) observer.disconnect()
