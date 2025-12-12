@@ -18,7 +18,6 @@ def translate_text_wrapper(
         'from_language': from_lang,
         'to_language': to_lang,
         # --- 优化项 ---
-        # 'if_use_preacceleration': True, # 利用预热的缓存
         'http_client': 'httpx',         # 尝试更快的客户端
         'sleep_seconds': random.uniform(0.2, 0.6), # 随机休眠防封
     }

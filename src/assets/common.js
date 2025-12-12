@@ -281,9 +281,11 @@ export const formatVoiceLabel = (voice) => {
 export const translatorOptions = [
   { label: 'Google Translate', value: 'google' },
   { label: 'Microsoft Azure', value: 'bing' },
+  { label: 'DeepL', value: 'deepl' },
+  //{ label: 'DeepL（Unstable）', value: 'deepl' },
   { label: 'Caiyun', value: 'caiyun' },
   { label: 'Alibaba', value: 'alibaba' },
-  { label: 'Sogou', value: 'sogou' },
+  { label: 'Sogou', value: 'sogou' }
 ]
 export const getAudioUrl = async (abortController,text, voice, rate="+0%") => {
   try {
@@ -302,7 +304,7 @@ export const getAudioUrl = async (abortController,text, voice, rate="+0%") => {
     throw error
   }
 }
-export const speedOptions = [0.75, 1.0, 1.25, 1.5].map(v => ({ label: `${v}x`, value: v }))
+export const speedOptions = [0.5,0.75, 1.0, 1.25, 1.5,2,3].map(v => ({ label: `${v}x`, value: v }))
 export const formatRate = (rate) => {
   const percent = Math.round((rate - 1) * 100)
   return percent >= 0 ? `+${percent}%` : `${percent}%`

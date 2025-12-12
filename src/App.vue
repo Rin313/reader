@@ -362,10 +362,10 @@ const flushTranslationQueue = async () => {
   if (!translationQueue.size) return
   const indices = [...translationQueue].sort((a, b) => a - b).slice(0, 10)
   indices.forEach(i => translationQueue.delete(i))
-  if (translationQueue.size) translationTimer = setTimeout(flushTranslationQueue, 1000)
+  if (translationQueue.size) translationTimer = setTimeout(flushTranslationQueue, 600)
   isBatchTranslating.value = true
   try {
-    const translated = await translateParagraphs(indices.map(i => paragraphs.value[i].enText), currentTranslator.value, 'en', 'zh')
+    const translated = await translateParagraphs(indices.map(i => paragraphs.value[i].enText), currentTranslator.value, 'auto', 'zh')
     indices.forEach((idx, i) => { 
       if (paragraphs.value[idx]) { paragraphs.value[idx].cnText = translated[i]; paragraphs.value[idx].translating = false } 
     })
@@ -392,7 +392,6 @@ const confirmColumnSelection = async (colIndex) => {
   showColumnSelector.value = false
   try {
     const dataRows = excelSheetData.value.slice(1)
-    if (!dataRows.length) { message.warning("表格除表头外没有数据"); return }
     const words = extractColumnFromData(dataRows, colIndex)
     if (!words.length) { message.warning("该列没有有效数据"); return }
     await setIndexed('vocabs', words)
@@ -469,7 +468,6 @@ const loadAndPlayAudio = async () => {
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
-
 /* 英文阅读字体 - 使用具有文学感的衬线字体 */
 .en-reading-text {
   font-family: 'Georgia', 'Cambria', 'Palatino Linotype', 'Palatino', 'Book Antiqua', 'Times New Roman', serif;
@@ -478,7 +476,6 @@ const loadAndPlayAudio = async () => {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
-
 /* 意群分块 - 保持正常文本流，允许自然换行 */
 .phrase-chunk {
   transition: background-color 0.2s ease, color 0.2s ease;
@@ -486,12 +483,10 @@ const loadAndPlayAudio = async () => {
   padding: 1px 3px;
   margin: -1px -3px;
 }
-
 .phrase-chunk:hover {
   background-color: rgba(99, 102, 241, 0.08);
   color: #312e81;
 }
-
 /* 意群分隔符 - 轻量视觉提示，不影响文本流 */
 .phrase-sep {
   color: #cbd5e1;
