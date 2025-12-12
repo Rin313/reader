@@ -232,7 +232,6 @@ const paragraphs = ref([])
 const viewMode = ref('en')
 const segmentationEnabled = ref(false)
 const vocabHighlightEnabled = ref(false)
-const userVocabList = shallowRef(new Set())
 const currentTranslator = ref('google')
 const translationQueue = new Set() 
 let translationTimer = null
@@ -258,7 +257,7 @@ const currentTextPreview = computed(() => {
   return !p ? 'Ready to start' : (readingPhase.value === 'cn' && p.cnText) ? p.cnText : p.enText
 })
 const playProgress = computed(() => totalTime.value > 0 ? (currentTime.value / totalTime.value) * 100 : 0)
-const handleParagraphClick = (e, index) => {
+const handleParagraphClick = (index) => {
   if (window.getSelection()?.toString().length > 0) return
   playParagraph(index)
 }
@@ -277,10 +276,6 @@ const handleTranslatorChange = () => {
   setTimeout(initObserver, 600)
 }
 onMounted(async () => {
-  try {
-    const data = await getIndexed('vocabs', [])
-    if (Array.isArray(data)) userVocabList.value = new Set(data)
-  } catch (e) { console.error('本地词库加载失败', e) }
   audio.addEventListener('timeupdate', () => { currentTime.value = audio.currentTime })
   audio.addEventListener('loadedmetadata', () => { totalTime.value = audio.duration; isBuffering.value = false })
   audio.addEventListener('waiting', () => { isBuffering.value = true })
@@ -392,10 +387,9 @@ const confirmColumnSelection = async (colIndex) => {
   showColumnSelector.value = false
   try {
     const dataRows = excelSheetData.value.slice(1)
-    const words = extractColumnFromData(dataRows, colIndex)
+    const words = [...(new Set(extractColumnFromData(dataRows, colIndex)))];
     if (!words.length) { message.warning("该列没有有效数据"); return }
     await setIndexed('vocabs', words)
-    userVocabList.value = new Set(words)
     paragraphs.value.forEach(p => { p.enTextDisplay = null; p.chunksDisplay = null })
     message.success(`已导入 ${words.length} 个词汇`)
     if (vocabHighlightEnabled.value) initObserver()
@@ -403,16 +397,16 @@ const confirmColumnSelection = async (colIndex) => {
 }
 const getRawHtml = (para) => (vocabHighlightEnabled.value && para.enTextDisplay) ? para.enTextDisplay : para.enText
 const getChunkHtml = (para, index, originalChunk) => (vocabHighlightEnabled.value && para.chunksDisplay?.[index]) ? para.chunksDisplay[index] : originalChunk
-
 const matchAndHighlight = async (index) => {
   const p = paragraphs.value[index]
-  if (!userVocabList.value.size || p.processingVocab) return
+  const userVocabList = await getIndexed('vocabs', []);
+  if (!userVocabList.length || p.processingVocab) return
   const isChunkMode = segmentationEnabled.value && p.chunks?.length > 0
   if (isChunkMode ? p.chunksDisplay : p.enTextDisplay) return
   p.processingVocab = true
   const targets = isChunkMode ? p.chunks : [p.enText]
   try {
-    const results = await matchVocabulary([...userVocabList.value], targets)
+    const results = await matchVocabulary(userVocabList, targets)
     if (results?.length === targets.length) {
       if (isChunkMode) p.chunksDisplay = targets.map((t, i) => generateHighlightHtml(t, results[i]))
       else p.enTextDisplay = generateHighlightHtml(targets[0], results[0])
@@ -428,7 +422,7 @@ const initObserver = () => {
   document.querySelectorAll('.para-observer-item').forEach(el => observer.observe(el))
 }
 const toggleSegmentation = () => { segmentationEnabled.value = !segmentationEnabled.value; initObserver() }
-const toggleVocab = () => { vocabHighlightEnabled.value = !vocabHighlightEnabled.value; if (vocabHighlightEnabled.value) { if (userVocabList.value.size === 0) message.warning("请先导入词汇库"); initObserver() } }
+const toggleVocab = async () => { vocabHighlightEnabled.value = !vocabHighlightEnabled.value; if (vocabHighlightEnabled.value) { const userVocabList = await getIndexed('vocabs', []); if (userVocabList.length === 0) message.warning("请先导入词汇库"); initObserver() } }
 onBeforeUnmount(() => {
   observer?.disconnect(); clearTimeout(translationTimer)
   audio.pause(); audio.src = ''; abortController?.abort()
