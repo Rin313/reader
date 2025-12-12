@@ -84,7 +84,7 @@
               :data-index="index"
               class="para-observer-item relative rounded-xl transition-all duration-300 border-l-4 scroll-m-32"
               :class="getParagraphClass(index)"
-              @click="handleParagraphClick($event, index)"
+              @click="handleParagraphClick(index)"
             >
               <span class="absolute top-2 left-1 sm:left-2 text-[9px] font-mono text-slate-300 select-none opacity-0 group-hover:opacity-100 transition-opacity">#{{ index + 1 }}</span>
               <div class="absolute top-2 right-2 flex gap-2 opacity-50">
@@ -232,14 +232,13 @@ const totalTime = ref(0)
 const readingPhase = ref('en')
 const currentEnVoice = ref(enVoices[0]?.ShortName)
 const currentCnVoice = ref(cnVoices[0]?.ShortName)
-const enVoiceOptions = computed(() => enVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName })))
-const cnVoiceOptions = computed(() => cnVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName })))
+const enVoiceOptions = enVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName }))
+const cnVoiceOptions = cnVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName }))
 const currentTextPreview = computed(() => {
   const p = paragraphs.value[currentPlayingIndex.value]
-  return !p ? 'Ready to start' : (readingPhase.value === 'cn' && p.cnText) ? p.cnText : p.enText
+  return !p ? '' : (readingPhase.value === 'cn') ? p.cnText : p.enText
 })
 const playProgress = computed(() => totalTime.value > 0 ? (currentTime.value / totalTime.value) * 100 : 0)
-// 处理词汇库导入成功事件
 const handleVocabImportSuccess = () => {
   // 清除之前的高亮缓存
   paragraphs.value.forEach(p => { 
@@ -301,11 +300,11 @@ const handleFileChange = async (e) => {
   try {
     const extracted = await uploadAndExtract(file)
     if (extracted?.length) {
-        paragraphs.value = extracted.map((para, index) => ({
+        paragraphs.value = extracted.map((p, index) => ({
             id: `p-${index}`,
-            originLang: para.lang,
-            enText: para.lang === 'en' ? para.text : '',
-            cnText: para.lang === 'zh' ? para.text : '',
+            originLang: p.lang,
+            enText: p.lang === 'en' ? p.text : '',
+            cnText: p.lang === 'zh' ? p.text : '',
             chunks: null, 
             enTextDisplay: null, 
             chunksDisplay: null, 
@@ -319,36 +318,47 @@ const handleFileChange = async (e) => {
 }
 const handleViewModeChange = () => { initObserver(); if (isPlaying.value) playParagraph(currentPlayingIndex.value) }
 const processParagraph = async (index) => {
-  const p = paragraphs.value[index]
-  if (!p) return
-  const needsChinese = viewMode.value !== 'en'
-  const needsEnglish = viewMode.value !== 'cn'
-
-  if (needsEnglish) {
-    if (segmentationEnabled.value && !p.chunks && !p.processingSegment) {
-      p.processingSegment = true
-      try { 
-        const res = await segmentSentence(p.enText)
-        p.chunks = res?.segments?.length > 0 ? res.segments : null
-      } catch { p.chunks = null } 
-      finally { p.processingSegment = false; if (vocabHighlightEnabled.value) matchAndHighlight(index) }
+    const p = paragraphs.value[index]
+    if (!p) return
+    const needsChinese = viewMode.value !== 'en'
+    const needsEnglish = viewMode.value !== 'cn'
+    if (needsChinese && !p.cnText && !p.translating || needsEnglish && !p.enText && !p.translating) queueTranslation(index)
+    if (needsEnglish && p.enText) {
+        if (segmentationEnabled.value && !p.chunks && !p.processingSegment) {
+            p.processingSegment = true
+            try { 
+                const res = await segmentSentence(p.enText)
+                p.chunks = res?.segments?.length > 0 ? res.segments : null
+            } catch { p.chunks = null } 
+            finally { p.processingSegment = false; }
+        }
+        if (vocabHighlightEnabled.value) matchAndHighlight(index)
     }
-    if (vocabHighlightEnabled.value) matchAndHighlight(index)
-  }
-  if (needsChinese && !p.cnText && !p.translating) queueTranslation(index)
+  
 }
 const handleTranslatorChange = () => {
   clearTimeout(translationTimer)
   translationQueue.clear()
   isBatchTranslating.value = false
-  paragraphs.value.forEach(p => { p.cnText = ''; p.translating = false })
+  paragraphs.value.forEach(p => { 
+    if(p.originLang === 'en') {
+        p.cnText = ''
+    }
+    // 如果是中文原文，清空英文译文 (及相关的分段/高亮缓存)
+    else if(p.originLang === 'zh') {
+        p.enText = ''
+        p.chunks = null
+        p.enTextDisplay = null
+        p.chunksDisplay = null
+    }
+    p.translating = false 
+  })
   setTimeout(initObserver, 600)
 }
 const queueTranslation = (index) => {
   const p = paragraphs.value[index];
-  console.log(p)
+  if (!p) return
   if (translationQueue.has(index) || p.translating) return
-  if(p.originLang=='en'&&p.cnText||p.originLang=='zh'&&p.enText)return
   translationQueue.add(index)
   p.translating = true 
   clearTimeout(translationTimer)
@@ -370,8 +380,8 @@ const flushTranslationQueue = async () => {
     indices.forEach(idx => { if (paragraphs.value[idx]) paragraphs.value[idx].translating = false }) 
   } finally { isBatchTranslating.value = false }
 }
-const getRawHtml = (para) => (vocabHighlightEnabled.value && para.enTextDisplay) ? para.enTextDisplay : para.enText
-const getChunkHtml = (para, index, originalChunk) => (vocabHighlightEnabled.value && para.chunksDisplay?.[index]) ? para.chunksDisplay[index] : originalChunk
+const getRawHtml = (p) => (vocabHighlightEnabled.value && p.enTextDisplay) ? p.enTextDisplay : p.enText
+const getChunkHtml = (p, index, originalChunk) => (vocabHighlightEnabled.value && p.chunksDisplay?.[index]) ? p.chunksDisplay[index] : originalChunk
 const matchAndHighlight = async (index) => {
   const p = paragraphs.value[index]
   const userVocabList = await getIndexed('vocabs', []);

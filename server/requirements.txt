@@ -7,7 +7,6 @@ PyMuPDF
 EbookLib
 beautifulsoup4
 trafilatura
-mobi
 translators
 edge-tts
 deepl

@@ -3,7 +3,6 @@ import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup
 import trafilatura
-import mobi
 import os
 import shutil
 import re
@@ -389,25 +388,3 @@ def extract_epub(file_path: str) -> List[str]:
     except Exception as e:
         print(f"Error parsing EPUB: {str(e)}")
         return []
-
-def extract_mobi(file_path: str) -> List[str]:
-    """
-    提取 MOBI 文本
-    """
-    temp_dir = "temp_mobi_extract"
-    try:
-        # 注意：mobi 库依赖某些系统环境，如果失败可能需要转换工具
-        temp_dir, filepath = mobi.extract(file_path)
-        full_paragraphs = []
-        if os.path.exists(filepath):
-            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-                raw_html = f.read()
-                full_paragraphs = clean_html_to_list(raw_html)
-        
-        return full_paragraphs
-    except Exception as e:
-        print(f"Error parsing MOBI: {str(e)}")
-        return []
-    finally:
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir, ignore_errors=True)
