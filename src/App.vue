@@ -43,7 +43,7 @@
                             <template #icon><n-icon size="20"><LanguageOutline /></n-icon></template>
                         </n-button>
                     </n-popselect>
-                    <n-button circle quaternary type="default" @click="vocabInputRef.click()">
+                    <n-button circle quaternary type="default" @click="vocabUploaderRef?.openFilePicker()">
                         <template #icon><n-icon size="20"><LibraryOutline /></n-icon></template>
                     </n-button>
                 </div>
@@ -186,48 +186,33 @@
           </div>
         </div>
       </transition>
-      <n-modal v-model:show="showColumnSelector" preset="card" title="导入配置" class="max-w-md w-[90vw]">
-          <div class="max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar">
-           <p class="text-slate-500 text-sm mb-4">请选择包含英文单词的一列：</p>
-           <div class="grid grid-cols-1 gap-2">
-             <div 
-                v-for="(col, idx) in excelColumns" 
-                :key="idx"
-                class="p-3 border border-slate-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 cursor-pointer transition-all flex flex-col"
-                @click="confirmColumnSelection(idx)"
-             >
-                <span class="font-bold text-slate-700 text-sm">{{ col.header || `第 ${idx + 1} 列` }}</span>
-                <span class="text-xs text-slate-400 mt-1 truncate">{{ col.preview }}</span>
-             </div>
-           </div>
-        </div>
-      </n-modal>
+      <VocabUploader ref="vocabUploaderRef" @import-success="handleVocabImportSuccess" />
       <input type="file" ref="fileInputRef" class="hidden" @change="handleFileChange" accept=".txt,.epub,.mobi,.pdf" />
-      <input type="file" ref="vocabInputRef" class="hidden" @change="handleVocabFileParse" accept=".csv,.xlsx" />
     </div>
   </n-config-provider>
 </template>
 <script setup>
-import { ref, computed, onBeforeUnmount, shallowRef, onMounted } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
 import { 
   NConfigProvider, NButton, NIcon, NRadioGroup, NRadioButton, 
-  NDivider, NTooltip, NProgress, NPopselect, NModal, createDiscreteApi 
+  NDivider, NTooltip, NProgress, NPopselect, createDiscreteApi 
 } from 'naive-ui'
 import { 
   BookOutline, CloudUploadOutline, SearchOutline, LanguageOutline, ReloadOutline,
   Play, Pause, GitNetworkOutline, LibraryOutline, PulseOutline,
 } from '@vicons/ionicons5'
 import { 
-  uploadAndExtract, segmentSentence, readExcelFile, extractColumnFromData, 
-  getIndexed, setIndexed, matchVocabulary, translateParagraphs, translatorOptions,
-  enVoices, cnVoices, formatVoiceLabel, getAudioUrl,speedOptions, formatRate, generateHighlightHtml
+  uploadAndExtract, segmentSentence, 
+  getIndexed, matchVocabulary, translateParagraphs, translatorOptions,
+  enVoices, cnVoices, formatVoiceLabel, getAudioUrl, speedOptions, formatRate, generateHighlightHtml
 } from './assets/common'
+import VocabUploader from './VocabUploader.vue'
 const themeOverrides = {
   common: { primaryColor: '#4f46e5', primaryColorHover: '#4338ca', borderRadius: '8px' }
 }
 const { message } = createDiscreteApi(['message'], { configProviderProps: { themeOverrides } })
 const fileInputRef = ref(null)
-const vocabInputRef = ref(null)
+const vocabUploaderRef = ref(null)
 const paragraphs = ref([]) 
 const viewMode = ref('en')
 const segmentationEnabled = ref(false)
@@ -247,9 +232,6 @@ const totalTime = ref(0)
 const readingPhase = ref('en')
 const currentEnVoice = ref(enVoices[0]?.ShortName)
 const currentCnVoice = ref(cnVoices[0]?.ShortName)
-const showColumnSelector = ref(false)
-const excelSheetData = shallowRef([])
-const excelColumns = ref([])
 const enVoiceOptions = computed(() => enVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName })))
 const cnVoiceOptions = computed(() => cnVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName })))
 const currentTextPreview = computed(() => {
@@ -257,6 +239,17 @@ const currentTextPreview = computed(() => {
   return !p ? 'Ready to start' : (readingPhase.value === 'cn' && p.cnText) ? p.cnText : p.enText
 })
 const playProgress = computed(() => totalTime.value > 0 ? (currentTime.value / totalTime.value) * 100 : 0)
+// 处理词汇库导入成功事件
+const handleVocabImportSuccess = () => {
+  // 清除之前的高亮缓存
+  paragraphs.value.forEach(p => { 
+    p.enTextDisplay = null
+    p.chunksDisplay = null 
+  })
+  if (vocabHighlightEnabled.value) {
+    initObserver()
+  }
+}
 const handleParagraphClick = (index) => {
   if (window.getSelection()?.toString().length > 0) return
   playParagraph(index)
@@ -306,7 +299,7 @@ const getParagraphClass = (index) => {
 const resetReader = () => {
   if (paragraphs.value.length && confirm('Clear all？')) {
     pauseTTS(); audio.src = ''; paragraphs.value = []
-    currentPlayingIndex.value = -1; translationQueue.clear(); observer?.disconnect()
+    currentPlayingIndex.value = -1; translationQueue.clear();
   }
 }
 const handleFileChange = async (e) => {
@@ -314,13 +307,19 @@ const handleFileChange = async (e) => {
   if (!file) return
   try {
     const extracted = await uploadAndExtract(file)
-    if (extracted?.lines?.length) {
-      paragraphs.value = extracted.lines.map((line, index) => ({
-        id: `p-${index}`,
-        enText: line, cnText: '', chunks: null, enTextDisplay: null, chunksDisplay: null, 
-        processingSegment: false, processingVocab: false, translating: false 
-      }));
-      message.success(`导入成功`);
+    if (extracted?.length) {
+        paragraphs.value = extracted.map((para, index) => ({
+            id: `p-${index}`,
+            originLang: para.lang,
+            enText: para.lang === 'en' ? para.text : '',
+            cnText: para.lang === 'zh' ? para.text : '',
+            chunks: null, 
+            enTextDisplay: null, 
+            chunksDisplay: null, 
+            processingSegment: false, 
+            processingVocab: false, 
+            translating: false 
+        }));
       setTimeout(initObserver, 600)
     } else { message.error("未提取到有效文本"); }
   } catch (error) { message.error("解析失败"); console.error(error); } finally { e.target.value = '' }
@@ -369,32 +368,6 @@ const flushTranslationQueue = async () => {
     indices.forEach(idx => { if (paragraphs.value[idx]) paragraphs.value[idx].translating = false }) 
   } finally { isBatchTranslating.value = false }
 }
-const handleVocabFileParse = async (e) => {
-  const file = e.target.files[0]
-  if (!file) return
-  e.target.value = ''
-  try {
-    const data = await readExcelFile(file)
-    if (!data?.length) throw new Error("文件为空")
-    excelSheetData.value = data
-    excelColumns.value = (data[0] || []).map((header, idx) => ({ 
-      header, preview: `${data[1]?.[idx] || '-'}, ${data[2]?.[idx] || '-'}` 
-    }))
-    showColumnSelector.value = true
-  } catch { message.error("Excel 解析失败") }
-}
-const confirmColumnSelection = async (colIndex) => {
-  showColumnSelector.value = false
-  try {
-    const dataRows = excelSheetData.value.slice(1)
-    const words = [...(new Set(extractColumnFromData(dataRows, colIndex)))];
-    if (!words.length) { message.warning("该列没有有效数据"); return }
-    await setIndexed('vocabs', words)
-    paragraphs.value.forEach(p => { p.enTextDisplay = null; p.chunksDisplay = null })
-    message.success(`已导入 ${words.length} 个词汇`)
-    if (vocabHighlightEnabled.value) initObserver()
-  } catch (e) { console.error(e); message.error("保存词库失败") }
-}
 const getRawHtml = (para) => (vocabHighlightEnabled.value && para.enTextDisplay) ? para.enTextDisplay : para.enText
 const getChunkHtml = (para, index, originalChunk) => (vocabHighlightEnabled.value && para.chunksDisplay?.[index]) ? para.chunksDisplay[index] : originalChunk
 const matchAndHighlight = async (index) => {
@@ -422,7 +395,10 @@ const initObserver = () => {
   document.querySelectorAll('.para-observer-item').forEach(el => observer.observe(el))
 }
 const toggleSegmentation = () => { segmentationEnabled.value = !segmentationEnabled.value; initObserver() }
-const toggleVocab = async () => { vocabHighlightEnabled.value = !vocabHighlightEnabled.value; if (vocabHighlightEnabled.value) { const userVocabList = await getIndexed('vocabs', []); if (userVocabList.length === 0) message.warning("请先导入词汇库"); initObserver() } }
+const toggleVocab = async () => { 
+  vocabHighlightEnabled.value = !vocabHighlightEnabled.value
+  if (vocabHighlightEnabled.value) initObserver();
+}
 onBeforeUnmount(() => {
   observer?.disconnect(); clearTimeout(translationTimer)
   audio.pause(); audio.src = ''; abortController?.abort()
@@ -462,7 +438,6 @@ const loadAndPlayAudio = async () => {
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
-/* 英文阅读字体 - 使用具有文学感的衬线字体 */
 .en-reading-text {
   font-family: 'Georgia', 'Cambria', 'Palatino Linotype', 'Palatino', 'Book Antiqua', 'Times New Roman', serif;
   font-feature-settings: 'kern' 1, 'liga' 1;

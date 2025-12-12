@@ -10,3 +10,5 @@ trafilatura
 mobi
 translators
 edge-tts
+deepl
+lingua-language-detector

@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from common import disable_quick_edit_if_win,get_local_ip
 from nlp_service import segment_text_content, find_vocab_matches
-from text_processors import extract_pdf, extract_epub, extract_mobi, extract_txt
+from text_processors import extract_with_language
 from translator import translate_text_wrapper
 from tts import generate_audio_stream
 
@@ -24,13 +24,6 @@ from tts import generate_audio_stream
 HOST = "0.0.0.0"
 PORT = 8000
 BASE_URL = f"http://127.0.0.1:{PORT}"
-
-FILE_EXTRACTORS: Dict[str, Callable[[str], List[str]]] = {
-    ".txt": extract_txt,
-    ".pdf": extract_pdf,
-    ".epub": extract_epub,
-    ".mobi": extract_mobi
-}
 
 # --- 生命周期管理 & 自动开启浏览器 ---
 @asynccontextmanager
@@ -89,33 +82,18 @@ class TTSRequest(BaseModel):
 
 @app.post("/upload")
 def upload_and_extract(file: UploadFile = File(...)):
-    # 优化：使用 set/dict 快速查找，降低复杂度
     filename = file.filename.lower()
     _, file_ext = os.path.splitext(filename)
-    
-    if file_ext not in FILE_EXTRACTORS:
-        raise HTTPException(status_code=400, detail="Unsupported format.")
-
-    # 创建临时文件
     tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=file_ext)
     try:
-        # 同步写入文件 (FastAPI 在 def 定义的路由中会使用线程池，不会阻塞主循环)
         with tmp_file:
             shutil.copyfileobj(file.file, tmp_file)
-        
-        # 调用映射的处理函数
-        extracted_lines = FILE_EXTRACTORS[file_ext](tmp_file.name)
-        
-        return {
-            "filename": file.filename,
-            "type": file_ext,
-            "lines": extracted_lines,
-            "total_lines": len(extracted_lines)
-        }
+        return extract_with_language(tmp_file.name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
     finally:
-        # 确保清理临时文件
         if os.path.exists(tmp_file.name):
             os.unlink(tmp_file.name)
 
@@ -160,14 +138,14 @@ def tts_post_endpoint(request: TTSRequest):
     )
 
 # 静态文件挂载放在最后，避免覆盖 API 路由
-app.mount("/", StaticFiles(directory="dist", html=True), name="static")
+app.mount("/", StaticFiles(directory="dist/DeepReader/dist", html=True), name="static")
 
 if __name__ == "__main__":
     disable_quick_edit_if_win()
     multiprocessing.freeze_support()
     
     uvicorn.run(
-        app, 
+        'main:app', 
         host=HOST, 
         port=PORT, 
         reload=False, 

@@ -9,6 +9,40 @@ import shutil
 import re
 import statistics
 from typing import List, Dict, Tuple
+from lingua import Language, LanguageDetectorBuilder
+detector = LanguageDetectorBuilder.from_languages(
+    Language.ENGLISH, Language.CHINESE
+).build()
+def detect_language(text: str) -> str:
+    language = detector.detect_language_of(text)
+    if language == Language.CHINESE:
+        return 'zh'
+    elif language == Language.ENGLISH:
+        return 'en'
+    return 'zh'
+def extract_with_language(file_path: str) -> List[Dict[str, str]]:
+    _, file_ext = os.path.splitext(file_path.lower())
+    # 提取文本段落
+    if file_ext == '.txt':
+        paragraphs = extract_txt(file_path)
+    elif file_ext == '.pdf':
+        paragraphs = extract_pdf(file_path)
+    elif file_ext == '.epub':
+        paragraphs = extract_epub(file_path)
+    elif file_ext == '.mobi':
+        paragraphs = extract_mobi(file_path)
+    else:
+        raise ValueError(f"Unsupported file format: {file_ext}")
+    # 标记语言
+    result = [
+        {
+            "text": para,
+            "lang": detect_language(para)
+        }
+        for i, para in enumerate(paragraphs)
+    ]
+    return result
+
 # 必须保证每个段落不以换行符结尾
 def is_sentence_end(text: str) -> bool:
     """判断是否为句子结束"""

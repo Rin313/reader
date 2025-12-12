@@ -56,7 +56,7 @@ export const matchVocabulary = (vocabList, textList) => {
     return post(`/match_vocab`, payload);
 };
 // return : {"original_text": "string","translated_text": "string"}
-const translate = (text, translator,from_lang,to_lang) => {
+export const translate = (text, translator,from_lang,to_lang) => {
     const payload = {
         text: text,
         translator: translator,
