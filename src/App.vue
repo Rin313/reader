@@ -261,13 +261,6 @@ const playParagraph = async (index, resetPhase = true) => {
   document.getElementById(`para-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   await loadAndPlayAudio()
 }
-const handleTranslatorChange = () => {
-  clearTimeout(translationTimer)
-  translationQueue.clear()
-  isBatchTranslating.value = false
-  paragraphs.value.forEach(p => { p.cnText = ''; p.translating = false })
-  setTimeout(initObserver, 600)
-}
 onMounted(async () => {
   audio.addEventListener('timeupdate', () => { currentTime.value = audio.currentTime })
   audio.addEventListener('loadedmetadata', () => { totalTime.value = audio.duration; isBuffering.value = false })
@@ -344,9 +337,18 @@ const processParagraph = async (index) => {
   }
   if (needsChinese && !p.cnText && !p.translating) queueTranslation(index)
 }
+const handleTranslatorChange = () => {
+  clearTimeout(translationTimer)
+  translationQueue.clear()
+  isBatchTranslating.value = false
+  paragraphs.value.forEach(p => { p.cnText = ''; p.translating = false })
+  setTimeout(initObserver, 600)
+}
 const queueTranslation = (index) => {
-  const p = paragraphs.value[index]
-  if (translationQueue.has(index) || p.cnText || p.translating) return
+  const p = paragraphs.value[index];
+  console.log(p)
+  if (translationQueue.has(index) || p.translating) return
+  if(p.originLang=='en'&&p.cnText||p.originLang=='zh'&&p.enText)return
   translationQueue.add(index)
   p.translating = true 
   clearTimeout(translationTimer)
