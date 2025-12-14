@@ -52,6 +52,7 @@
       </header>
       <main class="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-8 py-8 pb-48 relative">
         <transition name="fade" mode="out-in">
+          <!-- Empty State -->
           <div v-if="paragraphs.length === 0" class="flex flex-col items-center justify-center py-20 select-none min-h-[60vh]">
             <div 
               class="w-full max-w-2xl border border-dashed border-slate-300 hover:border-indigo-400 hover:bg-white bg-slate-50/50 rounded-3xl p-16 flex flex-col items-center text-center transition-all duration-500 cursor-pointer group"
@@ -66,7 +67,9 @@
           </div>
           <div v-else class="space-y-2">
             <div class="sticky top-16 z-20 flex justify-between items-center px-2 py-1.5 bg-[#f8fafc]/95 backdrop-blur border-b border-slate-100 mb-6 text-xs text-slate-400 font-mono">
-              <span class="pl-2">{{ paragraphs.length }} Paragraphs</span>
+              <span class="pl-2">
+                Page {{ currentPage }} / {{ totalPages }} · Total {{ paragraphs.length }} Paras
+              </span>
               <div class="flex gap-4 pr-2">
                 <span v-if="isBatchTranslating" class="text-amber-600 flex items-center gap-1">
                     <n-icon class="animate-spin"><ReloadOutline /></n-icon> Translating...
@@ -76,17 +79,17 @@
                 </span>
               </div>
             </div>
-            <!-- Paragraphs -->
+            <!-- Paragraphs Loop (Paginated) -->
             <div 
-              v-for="(para, index) in paragraphs" 
+              v-for="para in currentParagraphs" 
               :key="para.id"
-              :id="`para-${index}`"
-              :data-index="index"
+              :id="`para-${para.realIndex}`"
+              :data-index="para.realIndex"
               class="para-observer-item relative rounded-xl transition-all duration-300 border-l-4 scroll-m-32"
-              :class="getParagraphClass(index)"
-              @click="handleParagraphClick(index)"
+              :class="getParagraphClass(para.realIndex)"
+              @click="handleParagraphClick(para.realIndex)"
             >
-              <span class="absolute top-2 left-1 sm:left-2 text-[9px] font-mono text-slate-300 select-none opacity-0 group-hover:opacity-100 transition-opacity">#{{ index + 1 }}</span>
+              <span class="absolute top-2 left-1 sm:left-2 text-[9px] font-mono text-slate-300 select-none opacity-0 group-hover:opacity-100 transition-opacity">#{{ para.realIndex + 1 }}</span>
               <div class="absolute top-2 right-2 flex gap-2 opacity-50">
                  <n-icon v-if="para.processingSegment" size="14" class="animate-spin text-indigo-400"><GitNetworkOutline /></n-icon>
                  <n-icon v-if="para.translating" size="14" class="animate-spin text-amber-400"><LanguageOutline /></n-icon>
@@ -95,7 +98,7 @@
               <div v-if="viewMode !== 'cn'" class="relative px-2 sm:px-6 py-3 sm:py-4">
                 <div class="en-reading-text text-xl tracking-wide leading-[1.9] transition-colors duration-300"
                   :class="[
-                    (currentPlayingIndex === index && readingPhase === 'en') ? 'text-indigo-900 font-medium' : 'text-slate-800'
+                    (currentPlayingIndex === para.realIndex && readingPhase === 'en') ? 'text-indigo-900 font-medium' : 'text-slate-800'
                   ]">
                   <template v-if="segmentationEnabled && para.chunks && para.chunks.length > 0">
                     <template v-for="(chunk, cIndex) in para.chunks" :key="cIndex">
@@ -122,12 +125,28 @@
                    <div class="h-4 bg-slate-100 rounded w-1/2"></div>
                 </div>
                 <p v-else class="text-base leading-8 font-sans text-justify transition-colors duration-300"
-                   :class="(currentPlayingIndex === index && readingPhase === 'cn') ? 'text-indigo-700 font-medium' : 'text-slate-500 hover:text-slate-700'">
+                   :class="(currentPlayingIndex === para.realIndex && readingPhase === 'cn') ? 'text-indigo-700 font-medium' : 'text-slate-500 hover:text-slate-700'">
                   {{ para.cnText }}
                 </p>
               </div>
             </div> 
-            <div class="h-32 flex items-center justify-center text-slate-300 text-sm font-serif italic">- End of Text -</div>
+            <div class="pt-10 pb-20 flex flex-col items-center gap-4">
+                <div v-if="currentParagraphs.length > 0 && currentPage < totalPages" class="w-full flex justify-center">
+                    <n-button 
+                        ghost 
+                        type="primary" 
+                        size="large" 
+                        class="w-full max-w-sm !font-serif !tracking-wide hover:!scale-105 transition-transform"
+                        @click="changePage(currentPage + 1)"
+                    >
+                        Next Section (Page {{ currentPage + 1 }})
+                        <template #icon><n-icon><ArrowForwardOutline /></n-icon></template>
+                    </n-button>
+                </div>
+                <div v-if="currentPage === totalPages" class="flex items-center justify-center text-slate-300 text-sm font-serif italic">
+                    - End of Text -
+                </div>
+            </div>
           </div>
         </transition>
       </main>
@@ -199,12 +218,12 @@ import {
 } from 'naive-ui'
 import { 
   BookOutline, CloudUploadOutline, SearchOutline, LanguageOutline, ReloadOutline,
-  Play, Pause, GitNetworkOutline, LibraryOutline, PulseOutline,
+  Play, Pause, GitNetworkOutline, LibraryOutline, PulseOutline, ArrowForwardOutline
 } from '@vicons/ionicons5'
 import { 
   uploadAndExtract, segmentSentence, 
   matchVocabulary, translateParagraphs, translatorOptions,
-  enVoiceOptions, cnVoiceOptions, getAudioUrl, speedOptions, formatRate, generateHighlightHtml,smoothRefresh
+  enVoiceOptions, cnVoiceOptions, getAudioUrl, speedOptions, formatRate, generateHighlightHtml, smoothRefresh
 } from './assets/common'
 import VocabUploader from './VocabUploader.vue'
 const themeOverrides = {
@@ -222,6 +241,7 @@ const translationQueue = new Set()
 let translationTimer = null
 const isBatchTranslating = ref(false)
 let abortController = null
+// Audio State
 const audio = new Audio()
 const isPlaying = ref(false)
 const isBuffering = ref(false)
@@ -232,31 +252,61 @@ const totalTime = ref(0)
 const readingPhase = ref('en')
 const currentEnVoice = ref(enVoiceOptions[0]?.value)
 const currentCnVoice = ref(cnVoiceOptions[0]?.value)
+// Pagination State
+const PAGE_SIZE = 100
+const currentPage = ref(1)
+const totalPages = computed(() => Math.ceil(paragraphs.value.length / PAGE_SIZE))
+const currentParagraphs = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return paragraphs.value.slice(start, start + PAGE_SIZE).map((p, i) => ({
+    ...p,
+    realIndex: start + i 
+  }))
+})
 const currentTextPreview = computed(() => {
   const p = paragraphs.value[currentPlayingIndex.value]
   return !p ? '' : (readingPhase.value === 'cn') ? p.cnText : p.enText
 })
 const playProgress = computed(() => totalTime.value > 0 ? (currentTime.value / totalTime.value) * 100 : 0)
 const handleVocabImportSuccess = () => {
-  // 清除之前的高亮缓存
   paragraphs.value.forEach(p => { 
     p.enTextDisplay = null
     p.chunksDisplay = null 
   })
   initObserver()
 }
-const handleParagraphClick = (index) => {
+const handleParagraphClick = (realIndex) => {
   if (window.getSelection()?.toString().length > 0) return
-  playParagraph(index)
+  playParagraph(realIndex)
 }
-const playParagraph = async (index, resetPhase = true) => {
+const changePage = (page) => {
+  if (page < 1 || page > totalPages.value) return
+  currentPage.value = page
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+  setTimeout(initObserver, 600)
+}
+const playParagraph = async (index) => {
   if (index < 0 || index >= paragraphs.value.length) return
+  const targetPage = Math.floor(index / PAGE_SIZE) + 1
+  if (targetPage !== currentPage.value) {
+     changePage(targetPage)
+     // Wait slightly longer for page transition before scrolling to element
+     await new Promise(r => setTimeout(r, 600))
+  }
   currentPlayingIndex.value = index
-  if (resetPhase) readingPhase.value = viewMode.value === 'cn' ? 'cn' : 'en'
+  readingPhase.value = viewMode.value === 'cn' ? 'cn' : 'en'
   document.getElementById(`para-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   await loadAndPlayAudio()
 }
+const handleKeydown = (e) => {
+  if (e.key === 'ArrowLeft') {
+    changePage(currentPage.value - 1)
+  } else if (e.key === 'ArrowRight') {
+    changePage(currentPage.value + 1)
+  }
+}
 onMounted(async () => {
+  window.addEventListener('keydown', handleKeydown)
   audio.addEventListener('timeupdate', () => { currentTime.value = audio.currentTime })
   audio.addEventListener('loadedmetadata', () => { totalTime.value = audio.duration; isBuffering.value = false })
   audio.addEventListener('waiting', () => { isBuffering.value = true })
@@ -275,8 +325,8 @@ onMounted(async () => {
     }
   })
 })
-const getParagraphClass = (index) => {
-  const isActive = currentPlayingIndex.value === index
+const getParagraphClass = (realIndex) => {
+  const isActive = currentPlayingIndex.value === realIndex
   return [
     'group',
     isActive 
@@ -344,7 +394,6 @@ const handleTranslatorChange = () => {
     if(p.originLang === 'en') {
         p.cnText = ''
     }
-    // 如果是中文原文，清空英文译文 (及相关的分段/高亮缓存)
     else if(p.originLang === 'zh') {
         p.enText = ''
         p.chunks = null
@@ -366,18 +415,13 @@ const queueTranslation = (index) => {
 }
 const flushTranslationQueue = async () => {
     if (!translationQueue.size) return
-   // 取出当前批次
   const indices = [...translationQueue].sort((a, b) => a - b).slice(0, 10)
-  // 从队列移除
   indices.forEach(i => translationQueue.delete(i))
-  // 如果还有剩余，继续设置定时器
   if (translationQueue.size) translationTimer = setTimeout(flushTranslationQueue, 600)
   isBatchTranslating.value = true
-  // 分组：英译中任务 和 中译英任务
   const enToZhIndices = indices.filter(i => paragraphs.value[i]?.originLang === 'en' && !paragraphs.value[i].cnText)
   const zhToEnIndices = indices.filter(i => paragraphs.value[i]?.originLang === 'zh' && !paragraphs.value[i].enText)
   try {
-    // 执行 英 -> 中
     if (enToZhIndices.length > 0) {
         const texts = enToZhIndices.map(i => paragraphs.value[i].enText)
         const translated = await translateParagraphs(texts, currentTranslator.value, 'auto', 'zh')
@@ -388,7 +432,6 @@ const flushTranslationQueue = async () => {
             }
         })
     }
-    // 执行 中 -> 英
     if (zhToEnIndices.length > 0) {
         const texts = zhToEnIndices.map(i => paragraphs.value[i].cnText)
         const translated = await translateParagraphs(texts, currentTranslator.value, 'auto', 'en')
@@ -396,10 +439,7 @@ const flushTranslationQueue = async () => {
             if (paragraphs.value[idx]) {
                 paragraphs.value[idx].enText = translated[i]
                 paragraphs.value[idx].translating = false
-                // 翻译成英文后，可能需要补做分词处理
-                if (segmentationEnabled.value || vocabHighlightEnabled.value) {
-                    processParagraph(idx)
-                }
+                processParagraph(idx)
             }
         })
     }
@@ -416,7 +456,12 @@ let observer = null
 const initObserver = () => {
   observer?.disconnect()
   observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => { if (entry.isIntersecting) { const idx = Number(entry.target.dataset.index); if (!isNaN(idx)) processParagraph(idx) } })
+    entries.forEach(entry => { 
+        if (entry.isIntersecting) { 
+            const idx = Number(entry.target.dataset.index); 
+            if (!isNaN(idx)) processParagraph(idx) 
+        } 
+    })
   }, { rootMargin: '400px 0px 400px 0px', threshold: 0.01 })
   document.querySelectorAll('.para-observer-item').forEach(el => observer.observe(el))
 }
@@ -431,7 +476,7 @@ const seekAudio = (e) => {
   const rect = e.target.getBoundingClientRect()
   audio.currentTime = currentTime.value = ((e.clientX - rect.left) / rect.width) * totalTime.value
 }
-const onAudioConfigChange = () => { if (currentPlayingIndex.value !== -1) playParagraph(currentPlayingIndex.value, false) }
+const onAudioConfigChange = () => { if (currentPlayingIndex.value !== -1) playParagraph(currentPlayingIndex.value) }
 const loadAndPlayAudio = async () => {
   const p = paragraphs.value[currentPlayingIndex.value]
   if (!p) return
@@ -453,9 +498,6 @@ const loadAndPlayAudio = async () => {
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .slide-up-enter-active, .slide-up-leave-active { transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease; }
 .slide-up-enter-from, .slide-up-leave-to { transform: translateY(100%); opacity: 0; }
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
 .en-reading-text {
   font-family: 'Georgia', 'Cambria', 'Palatino Linotype', 'Palatino', 'Book Antiqua', 'Times New Roman', serif;
   font-feature-settings: 'kern' 1, 'liga' 1;
@@ -463,7 +505,6 @@ const loadAndPlayAudio = async () => {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
-/* 意群分块 - 保持正常文本流，允许自然换行 */
 .phrase-chunk {
   transition: background-color 0.2s ease, color 0.2s ease;
   border-radius: 3px;
@@ -474,7 +515,6 @@ const loadAndPlayAudio = async () => {
   background-color: rgba(99, 102, 241, 0.08);
   color: #312e81;
 }
-/* 意群分隔符 - 轻量视觉提示，不影响文本流 */
 .phrase-sep {
   color: #cbd5e1;
   margin: 0 0.4em;
