@@ -5,10 +5,11 @@ import tempfile
 import uvicorn
 import webbrowser
 import multiprocessing
+import traceback
 from contextlib import asynccontextmanager
-from typing import List, Dict, Callable
+from typing import List, Dict, Callable,Any
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException,Body
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +20,7 @@ from nlp_service import segment_text_content, find_vocab_matches
 from text_processors import extract_with_language
 from translator import translate_text_wrapper
 from tts import generate_audio_stream
+from storage import storage
 
 # --- 配置 ---
 HOST = "0.0.0.0"
@@ -58,7 +60,6 @@ class SegmentRequest(BaseModel):
     text: str
 
 class VocabMatchRequest(BaseModel):
-    vocab_list: List[str]
     text_list: List[str]
 
 class TranslationRequest(BaseModel):
@@ -109,10 +110,12 @@ def segment_sentence(request: SegmentRequest):
 
 @app.post("/match_vocab")
 def match_vocabulary(request: VocabMatchRequest):
-    if not request.vocab_list or not request.text_list: return []
     try:
-        return find_vocab_matches(request.vocab_list, request.text_list)
+        vocab_list=storage.get('vocabs')
+        if not vocab_list or not request.text_list: return []
+        return find_vocab_matches(vocab_list, request.text_list)
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Vocabulary matching failed: {str(e)}")
 
 @app.post("/translate", response_model=TranslationResponse)
@@ -137,6 +140,12 @@ def tts_post_endpoint(request: TTSRequest):
         media_type="audio/mpeg",
         headers={"Content-Disposition": "attachment; filename=tts_audio.mp3"}
     )
+@app.get("/api/storage/{key}")
+async def get_item(key: str):
+    return storage.get(key)
+@app.put("/api/storage/{key}")
+async def set_item(key: str, value: Any = Body(...)):
+    storage.set(key, value)
 static_dist_path = os.path.join(get_app_path(), "dist", "DeepReader", "dist")
 # 静态文件挂载放在最后，避免覆盖 API 路由
 app.mount("/", StaticFiles(directory=static_dist_path, html=True), name="static")

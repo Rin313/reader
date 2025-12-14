@@ -187,12 +187,12 @@
         </div>
       </transition>
       <VocabUploader ref="vocabUploaderRef" @import-success="handleVocabImportSuccess" />
-      <input type="file" ref="fileInputRef" class="hidden" @change="handleFileChange" accept=".txt,.epub,.mobi,.pdf" />
+      <input type="file" ref="fileInputRef" class="hidden" @change="handleFileChange" accept=".txt,.epub,.pdf" />
     </div>
   </n-config-provider>
 </template>
 <script setup>
-import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { 
   NConfigProvider, NButton, NIcon, NRadioGroup, NRadioButton, 
   NDivider, NTooltip, NProgress, NPopselect, createDiscreteApi 
@@ -203,8 +203,8 @@ import {
 } from '@vicons/ionicons5'
 import { 
   uploadAndExtract, segmentSentence, 
-  getIndexed, matchVocabulary, translateParagraphs, translatorOptions,
-  enVoices, cnVoices, formatVoiceLabel, getAudioUrl, speedOptions, formatRate, generateHighlightHtml,smoothRefresh
+  matchVocabulary, translateParagraphs, translatorOptions,
+  enVoiceOptions, cnVoiceOptions, getAudioUrl, speedOptions, formatRate, generateHighlightHtml,smoothRefresh
 } from './assets/common'
 import VocabUploader from './VocabUploader.vue'
 const themeOverrides = {
@@ -230,10 +230,8 @@ const ttsSpeed = ref(1.0)
 const currentTime = ref(0)
 const totalTime = ref(0)
 const readingPhase = ref('en')
-const currentEnVoice = ref(enVoices[0]?.ShortName)
-const currentCnVoice = ref(cnVoices[0]?.ShortName)
-const enVoiceOptions = enVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName }))
-const cnVoiceOptions = cnVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName }))
+const currentEnVoice = ref(enVoiceOptions[0]?.value)
+const currentCnVoice = ref(cnVoiceOptions[0]?.value)
 const currentTextPreview = computed(() => {
   const p = paragraphs.value[currentPlayingIndex.value]
   return !p ? '' : (readingPhase.value === 'cn') ? p.cnText : p.enText
@@ -245,9 +243,7 @@ const handleVocabImportSuccess = () => {
     p.enTextDisplay = null
     p.chunksDisplay = null 
   })
-  if (vocabHighlightEnabled.value) {
-    initObserver()
-  }
+  initObserver()
 }
 const handleParagraphClick = (index) => {
   if (window.getSelection()?.toString().length > 0) return
@@ -311,12 +307,11 @@ const handleFileChange = async (e) => {
         }));
       setTimeout(initObserver, 600)
     } else { message.error("未提取到有效文本"); }
-  } catch (error) { message.error("解析失败"); console.error(error); } finally { e.target.value = '' }
+  } catch (error) { message.error("解析失败"); } finally { e.target.value = '' }
 }
 const handleViewModeChange = () => { initObserver(); if (isPlaying.value) playParagraph(currentPlayingIndex.value) }
 const processParagraph = async (index) => {
     const p = paragraphs.value[index]
-    if (!p) return
     const needsChinese = viewMode.value !== 'en'
     const needsEnglish = viewMode.value !== 'cn'
     if (needsChinese && !p.cnText && !p.translating || needsEnglish && !p.enText && !p.translating) queueTranslation(index)
@@ -326,12 +321,22 @@ const processParagraph = async (index) => {
             try { 
                 const res = await segmentSentence(p.enText)
                 p.chunks = res?.segments?.length > 0 ? res.segments : null
-            } catch { p.chunks = null } 
-            finally { p.processingSegment = false; }
+            } finally { p.processingSegment = false; }
         }
-        if (vocabHighlightEnabled.value) matchAndHighlight(index)
+        if (vocabHighlightEnabled.value && !p.processingVocab) {
+                const isChunkMode = segmentationEnabled.value && p.chunks?.length > 0
+                if (isChunkMode ? p.chunksDisplay : p.enTextDisplay) return
+                p.processingVocab = true
+                const targets = isChunkMode ? p.chunks : [p.enText]
+                try {
+                    const results = await matchVocabulary(targets)
+                    if (results?.length === targets.length) {
+                        if (isChunkMode) p.chunksDisplay = targets.map((t, i) => generateHighlightHtml(t, results[i]))
+                        else p.enTextDisplay = generateHighlightHtml(targets[0], results[0])
+                    }
+                } finally { p.processingVocab = false }
+        }
     }
-  
 }
 const handleTranslatorChange = () => {
   clearTimeout(translationTimer)
@@ -385,7 +390,6 @@ const flushTranslationQueue = async () => {
             }
         })
     }
-
     // 执行 中 -> 英
     if (zhToEnIndices.length > 0) {
         const texts = zhToEnIndices.map(i => paragraphs.value[i].cnText)
@@ -402,7 +406,6 @@ const flushTranslationQueue = async () => {
         })
     }
   } catch (e) { 
-    console.error("Batch translate error", e)
     message.warning("部分翻译失败，请滚动重试")
     indices.forEach(idx => { if (paragraphs.value[idx]) paragraphs.value[idx].translating = false }) 
   } finally { 
@@ -411,22 +414,6 @@ const flushTranslationQueue = async () => {
 }
 const getRawHtml = (p) => (vocabHighlightEnabled.value && p.enTextDisplay) ? p.enTextDisplay : p.enText
 const getChunkHtml = (p, index, originalChunk) => (vocabHighlightEnabled.value && p.chunksDisplay?.[index]) ? p.chunksDisplay[index] : originalChunk
-const matchAndHighlight = async (index) => {
-  const p = paragraphs.value[index]
-  const userVocabList = await getIndexed('vocabs', []);
-  if (!userVocabList.length || p.processingVocab) return
-  const isChunkMode = segmentationEnabled.value && p.chunks?.length > 0
-  if (isChunkMode ? p.chunksDisplay : p.enTextDisplay) return
-  p.processingVocab = true
-  const targets = isChunkMode ? p.chunks : [p.enText]
-  try {
-    const results = await matchVocabulary(userVocabList, targets)
-    if (results?.length === targets.length) {
-      if (isChunkMode) p.chunksDisplay = targets.map((t, i) => generateHighlightHtml(t, results[i]))
-      else p.enTextDisplay = generateHighlightHtml(targets[0], results[0])
-    }
-  } finally { p.processingVocab = false }
-}
 let observer = null
 const initObserver = () => {
   observer?.disconnect()
@@ -436,14 +423,7 @@ const initObserver = () => {
   document.querySelectorAll('.para-observer-item').forEach(el => observer.observe(el))
 }
 const toggleSegmentation = () => { segmentationEnabled.value = !segmentationEnabled.value; initObserver() }
-const toggleVocab = async () => { 
-  vocabHighlightEnabled.value = !vocabHighlightEnabled.value
-  if (vocabHighlightEnabled.value) initObserver();
-}
-onBeforeUnmount(() => {
-  observer?.disconnect(); clearTimeout(translationTimer)
-  audio.pause(); audio.src = ''; abortController?.abort()
-})
+const toggleVocab = async () => { vocabHighlightEnabled.value = !vocabHighlightEnabled.value; initObserver();}
 const togglePlay = () => {
   if (isPlaying.value) { audio.pause(); isPlaying.value = false } 
   else { if (currentPlayingIndex.value === -1 && paragraphs.value.length > 0) playParagraph(0); else audio.play().catch(e => console.error("Resume failed", e)) }

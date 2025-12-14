@@ -4,7 +4,7 @@ export function listenToggle(obj,key,defaultValue=true){
     obj.addEventListener("change", () => setIndexed(key, obj.checked));
 }
 async function _jsonFetch(url,{ headers = {}, body, ...rest } = {}) {
-    if (body && body.constructor === Object) {
+    if ((body && (body.constructor === Object || Array.isArray(body)))) {
         headers['Content-Type'] ??= 'application/json';
         body = JSON.stringify(body);
     }
@@ -18,6 +18,7 @@ export const get = (url, params, options = {}) => {
     return _jsonFetch(finalUrl, options);
 };
 const post = (url, body, options = {}) => _jsonFetch(url, { ...options, method: 'POST', body }); 
+const put = (url, body, options = {}) => _jsonFetch(url, { ...options, method: 'PUT', body });
 export const uploadAndExtract = (fileObj) => {
     const formData = new FormData();
     // OpenAPI 定义中字段名为 "file"
@@ -48,9 +49,8 @@ Args:
             [...]
         ]
  */
-export const matchVocabulary = (vocabList, textList) => {
+export const matchVocabulary = (textList) => {
     const payload = {
-        vocab_list: vocabList,
         text_list: textList
     };
     return post(`/match_vocab`, payload);
@@ -273,7 +273,7 @@ export async function setIndexed(key, obj) {
   }
 }
 export const formatTime = (sec) => `00:${Math.floor(sec).toString().padStart(2, '0')}`
-export const formatVoiceLabel = (voice) => {
+const formatVoiceLabel = (voice) => {
   const name = voice.ShortName.split(':')[0].split('-').pop().replace('Neural', '')
   const genderShort = voice.Gender === 'Female' ? 'F' : 'M'
   return `${name} (${genderShort})`
@@ -324,7 +324,7 @@ export const generateHighlightHtml = (text, matches) => {
   })
   return result
 }
-export const enVoices = [
+const enVoices = [
     {
       "ShortName": "en-US-AvaMultilingualNeural",
       "Gender": "Female"
@@ -547,7 +547,7 @@ export const enVoices = [
     }
   ];
 
-export const cnVoices = [
+const cnVoices = [
     {
       "ShortName": "zh-CN-XiaoxiaoNeural",
       "Gender": "Female"
@@ -665,6 +665,8 @@ export const cnVoices = [
       "Gender": "Male"
     }
   ]  
+export const enVoiceOptions = enVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName }))
+export const cnVoiceOptions = cnVoices.map(v => ({ label: formatVoiceLabel(v), value: v.ShortName }))
 const REFRESH_PARAM = "__sr";
 
 export function smoothRefresh(options) {
@@ -701,3 +703,10 @@ export function smoothRefresh(options) {
 //     });
 //   }
 // })();
+export async function getItem(key,defaultValue) {
+    const value=await get(`/api/storage/${key}`);
+    return value?value:defaultValue;
+}
+export async function setItem(key, value) {
+    return put(`/api/storage/${key}`,value);
+}

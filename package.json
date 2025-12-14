@@ -12,17 +12,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.17",
-    "tailwindcss": "^4.1.17",
+    "@tailwindcss/vite": "^4.1.18",
     "vue": "^3.5.25",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@vicons/ionicons5": "^0.13.0",
-    "@vitejs/plugin-vue": "^6.0.1",
+    "@vitejs/plugin-vue": "^6.0.3",
     "naive-ui": "^2.43.2",
     "vfonts": "^0.0.3",
-    "vite": "^7.1.11",
-    "vite-plugin-vue-devtools": "^8.0.3"
+    "vite": "^7.2.7",
+    "vite-plugin-vue-devtools": "^8.0.5"
   }
 }

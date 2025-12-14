@@ -34,7 +34,7 @@
 <script setup>
 import { ref, shallowRef } from 'vue'
 import { NModal, createDiscreteApi } from 'naive-ui'
-import { readExcelFile, extractColumnFromData, setIndexed } from './assets/common'
+import { readExcelFile, extractColumnFromData, setItem } from './assets/common'
 
 const themeOverrides = {
   common: { primaryColor: '#4f46e5', primaryColorHover: '#4338ca', borderRadius: '8px' }
@@ -84,7 +84,7 @@ const confirmColumnSelection = async (colIndex) => {
       message.warning("该列没有有效数据")
       return 
     }
-    await setIndexed('vocabs', words)
+    await setItem('vocabs', words)
     message.success(`已导入 ${words.length} 个词汇`)
     emit('import-success', words)
   } catch (e) { 
