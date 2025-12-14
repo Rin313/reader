@@ -6,5 +6,3 @@ pip install -r requirements.txt --upgrade
 
 sudo chmod -R +x .
 sudo xattr -r -d com.apple.quarantine .
-
-出现了dist、model都在users/yuan导入的问题，而用户处理路径是users/yuan/desktop/deepreader

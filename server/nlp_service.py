@@ -1,15 +1,43 @@
 import os
+from common import get_app_path
 import spacy
 from spacy.tokens import Doc
 from spacy.matcher import PhraseMatcher
 from spacy.util import filter_spans
-
 try:
     print("Loading NLP model (en_core_web_lg)...")
-    nlp = spacy.load(os.path.join(os.getcwd(), "en_core_web_lg"),disable=["ner"])
-    
+    base_path = get_app_path()
+    # 获取模型的绝对路径
+    model_path_1 = os.path.join(base_path, "en_core_web_lg")
+    model_path_2 = os.path.join(base_path, "xx_sent_ud_sm")
+    nlp = spacy.load(model_path_1, disable=["ner"])
+    print("Loading NLP model (xx_sent_ud_sm)...")
+    nlp2 = spacy.load(model_path_2, disable=["ner"])
 except Exception as e:
     print(f"Model load failed: {e}")
+def split_paragraphs(texts: list[str], 
+                     threshold: int = 240) -> list[str]:
+    """
+    遍历字符串列表，如果字符串长度大于阈值，则使用spacy进行分句
+    
+    Args:
+        texts: 字符串列表
+        threshold: 长度阈值
+        model_name: spacy模型名称 (英文: en_core_web_sm, 中文: zh_core_web_sm)
+    
+    Returns:
+        处理后的字符串列表（扁平化）
+    """
+    result = []
+    for text in texts:
+        if len(text) > threshold:
+            # 使用spacy分句
+            doc = nlp2(text)
+            sentences = [sent.text.strip() for sent in doc.sents]
+            result.extend(sentences)
+        else:
+            result.append(text)
+    return result
 # 全局缓存
 _CACHED_MATCHER = None
 _CACHED_VOCAB_ID = None

@@ -1,4 +1,5 @@
 import sys
+import os
 import socket
 def disable_quick_edit_if_win():
     """
@@ -37,3 +38,20 @@ def get_local_ip():
         return ip
     except:
         return "127.0.0.1"
+def get_app_path():
+    """
+    获取应用程序的根目录路径。
+    兼容开发环境（python main.py）和打包环境（PyInstaller）。
+    """
+    if getattr(sys, 'frozen', False):
+        # 如果是 PyInstaller 打包后的环境
+        # sys.executable 指向的是可执行文件的绝对路径
+        application_path = os.path.dirname(os.path.abspath(sys.executable))
+        # 注意：如果你在 macOS 上打成了 .app 包 (windowed mode)，
+        # executable 可能在 MyArgs.app/Contents/MacOS/ 里面。
+        # 如果你的资源文件放在 .app 外面，可能需要再往上 os.path.dirname 一两次。
+        # 但如果是标准的文件夹模式 (--onedir)，上面这行就足够了。
+        return application_path
+    else:
+        # 开发环境
+        return os.path.dirname(os.path.abspath(__file__))

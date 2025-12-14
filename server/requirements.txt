@@ -6,7 +6,6 @@ spacy
 PyMuPDF
 EbookLib
 beautifulsoup4
-trafilatura
 translators
 edge-tts
 deepl

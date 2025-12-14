@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from common import disable_quick_edit_if_win,get_local_ip
+from common import disable_quick_edit_if_win,get_local_ip,get_app_path
 from nlp_service import segment_text_content, find_vocab_matches
 from text_processors import extract_with_language
 from translator import translate_text_wrapper
@@ -92,6 +92,7 @@ def upload_and_extract(file: UploadFile = File(...)):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
     finally:
         if os.path.exists(tmp_file.name):
@@ -136,9 +137,9 @@ def tts_post_endpoint(request: TTSRequest):
         media_type="audio/mpeg",
         headers={"Content-Disposition": "attachment; filename=tts_audio.mp3"}
     )
-
+static_dist_path = os.path.join(get_app_path(), "dist", "DeepReader", "dist")
 # 静态文件挂载放在最后，避免覆盖 API 路由
-app.mount("/", StaticFiles(directory="dist/DeepReader/dist", html=True), name="static")
+app.mount("/", StaticFiles(directory=static_dist_path, html=True), name="static")
 
 if __name__ == "__main__":
     disable_quick_edit_if_win()

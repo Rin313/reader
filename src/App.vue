@@ -61,7 +61,7 @@
                 <n-icon size="48" class="opacity-80 group-hover:opacity-100"><CloudUploadOutline /></n-icon>
               </div>
               <h2 class="text-2xl font-serif font-bold text-slate-700 mb-3 group-hover:text-indigo-700 transition-colors">开启沉浸式阅读</h2>
-              <p class="text-base text-slate-400 mb-8 font-light">点击上传 TXT, EPUB, MOBI, PDF</p>
+              <p class="text-base text-slate-400 mb-8 font-light">点击上传 TXT, EPUB, PDF</p>
             </div>
           </div>
           <div v-else class="space-y-2">
@@ -204,7 +204,7 @@ import {
 import { 
   uploadAndExtract, segmentSentence, 
   getIndexed, matchVocabulary, translateParagraphs, translatorOptions,
-  enVoices, cnVoices, formatVoiceLabel, getAudioUrl, speedOptions, formatRate, generateHighlightHtml
+  enVoices, cnVoices, formatVoiceLabel, getAudioUrl, speedOptions, formatRate, generateHighlightHtml,smoothRefresh
 } from './assets/common'
 import VocabUploader from './VocabUploader.vue'
 const themeOverrides = {
@@ -214,7 +214,7 @@ const { message } = createDiscreteApi(['message'], { configProviderProps: { them
 const fileInputRef = ref(null)
 const vocabUploaderRef = ref(null)
 const paragraphs = ref([]) 
-const viewMode = ref('en')
+const viewMode = ref('dual')
 const segmentationEnabled = ref(false)
 const vocabHighlightEnabled = ref(false)
 const currentTranslator = ref('google')
@@ -289,10 +289,7 @@ const getParagraphClass = (index) => {
   ]
 }
 const resetReader = () => {
-  if (paragraphs.value.length && confirm('Clear all？')) {
-    pauseTTS(); audio.src = ''; paragraphs.value = []
-    currentPlayingIndex.value = -1; translationQueue.clear();
-  }
+  if (paragraphs.value.length && confirm('Clear all？')) smoothRefresh();
 }
 const handleFileChange = async (e) => {
   const file = e.target.files[0]
@@ -365,20 +362,52 @@ const queueTranslation = (index) => {
   translationTimer = setTimeout(flushTranslationQueue, 600)
 }
 const flushTranslationQueue = async () => {
-  if (!translationQueue.size) return
+    if (!translationQueue.size) return
+   // 取出当前批次
   const indices = [...translationQueue].sort((a, b) => a - b).slice(0, 10)
+  // 从队列移除
   indices.forEach(i => translationQueue.delete(i))
+  // 如果还有剩余，继续设置定时器
   if (translationQueue.size) translationTimer = setTimeout(flushTranslationQueue, 600)
   isBatchTranslating.value = true
+  // 分组：英译中任务 和 中译英任务
+  const enToZhIndices = indices.filter(i => paragraphs.value[i]?.originLang === 'en' && !paragraphs.value[i].cnText)
+  const zhToEnIndices = indices.filter(i => paragraphs.value[i]?.originLang === 'zh' && !paragraphs.value[i].enText)
   try {
-    const translated = await translateParagraphs(indices.map(i => paragraphs.value[i].enText), currentTranslator.value, 'auto', 'zh')
-    indices.forEach((idx, i) => { 
-      if (paragraphs.value[idx]) { paragraphs.value[idx].cnText = translated[i]; paragraphs.value[idx].translating = false } 
-    })
-  } catch { 
+    // 执行 英 -> 中
+    if (enToZhIndices.length > 0) {
+        const texts = enToZhIndices.map(i => paragraphs.value[i].enText)
+        const translated = await translateParagraphs(texts, currentTranslator.value, 'auto', 'zh')
+        enToZhIndices.forEach((idx, i) => {
+            if (paragraphs.value[idx]) {
+                paragraphs.value[idx].cnText = translated[i]
+                paragraphs.value[idx].translating = false
+            }
+        })
+    }
+
+    // 执行 中 -> 英
+    if (zhToEnIndices.length > 0) {
+        const texts = zhToEnIndices.map(i => paragraphs.value[i].cnText)
+        const translated = await translateParagraphs(texts, currentTranslator.value, 'auto', 'en')
+        zhToEnIndices.forEach((idx, i) => {
+            if (paragraphs.value[idx]) {
+                paragraphs.value[idx].enText = translated[i]
+                paragraphs.value[idx].translating = false
+                // 翻译成英文后，可能需要补做分词处理
+                if (segmentationEnabled.value || vocabHighlightEnabled.value) {
+                    processParagraph(idx)
+                }
+            }
+        })
+    }
+  } catch (e) { 
+    console.error("Batch translate error", e)
     message.warning("部分翻译失败，请滚动重试")
     indices.forEach(idx => { if (paragraphs.value[idx]) paragraphs.value[idx].translating = false }) 
-  } finally { isBatchTranslating.value = false }
+  } finally { 
+    isBatchTranslating.value = false 
+  }
 }
 const getRawHtml = (p) => (vocabHighlightEnabled.value && p.enTextDisplay) ? p.enTextDisplay : p.enText
 const getChunkHtml = (p, index, originalChunk) => (vocabHighlightEnabled.value && p.chunksDisplay?.[index]) ? p.chunksDisplay[index] : originalChunk
@@ -419,7 +448,6 @@ const togglePlay = () => {
   if (isPlaying.value) { audio.pause(); isPlaying.value = false } 
   else { if (currentPlayingIndex.value === -1 && paragraphs.value.length > 0) playParagraph(0); else audio.play().catch(e => console.error("Resume failed", e)) }
 }
-const pauseTTS = () => { audio.pause(); isPlaying.value = false }
 const seekAudio = (e) => { 
   if (!totalTime.value) return
   const rect = e.target.getBoundingClientRect()

@@ -665,3 +665,39 @@ export const cnVoices = [
       "Gender": "Male"
     }
   ]  
+const REFRESH_PARAM = "__sr";
+
+export function smoothRefresh(options) {
+  options = options || {};
+  const bustCache = options.bustCache !== undefined ? options.bustCache : true;
+  const preserveScroll = options.preserveScroll !== undefined ? options.preserveScroll : true;
+
+  // 可选：记录滚动位置
+  if (preserveScroll) {
+    sessionStorage.setItem("__sr_scrollY", String(window.scrollY));
+  }
+
+  const url = new URL(location.href);
+
+  // 关键：让 URL 发生变化以触发一次导航
+  url.searchParams.set(REFRESH_PARAM, bustCache ? String(Date.now()) : "1");
+
+  location.assign(url.toString());
+}
+//页面加载后清理临时参数 + 恢复滚动（可选）//这段在每次加载时跑一下即可（同样不绑定框架）：
+// (function cleanupSmoothRefreshParam() {
+//   const url = new URL(location.href);
+//   if (!url.searchParams.has("__sr")) return;
+
+//   url.searchParams.delete("__sr");
+//   history.replaceState(history.state, "", url.toString());
+
+//   const y = Number(sessionStorage.getItem("__sr_scrollY"));
+//   sessionStorage.removeItem("__sr_scrollY");
+
+//   if (!Number.isNaN(y)) {
+//     requestAnimationFrame(function () {
+//       window.scrollTo(0, y);
+//     });
+//   }
+// })();
