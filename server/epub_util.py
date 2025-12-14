@@ -44,7 +44,7 @@ class CleanConfig:
     # 要提取的内容标签
     content_tags: Set[str] = None
     # 最小文本长度
-    min_length: int = 2
+    min_length: int = 1
     # 是否规范化空白
     normalize_whitespace: bool = True
     # 是否移除图片的alt文本

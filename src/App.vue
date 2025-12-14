@@ -284,9 +284,7 @@ const getParagraphClass = (index) => {
       : 'bg-white/60 hover:bg-white border-transparent hover:border-slate-200 hover:shadow-sm'
   ]
 }
-const resetReader = () => {
-  if (paragraphs.value.length && confirm('Clear all？')) smoothRefresh();
-}
+const resetReader = () => { if (paragraphs.value.length && confirm('Clear all？')) smoothRefresh();}
 const handleFileChange = async (e) => {
   const file = e.target.files[0]
   if (!file) return
@@ -296,8 +294,8 @@ const handleFileChange = async (e) => {
         paragraphs.value = extracted.map((p, index) => ({
             id: `p-${index}`,
             originLang: p.lang,
-            enText: p.lang === 'en' ? p.text : '',
-            cnText: p.lang === 'zh' ? p.text : '',
+            enText: p.lang !== 'zh' ? p.text : '',
+            cnText: p.lang !== 'en' ? p.text : '',
             chunks: null, 
             enTextDisplay: null, 
             chunksDisplay: null, 

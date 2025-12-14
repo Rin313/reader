@@ -13,7 +13,7 @@ def detect_language(text: str) -> str:
         return 'zh'
     elif language == Language.ENGLISH:
         return 'en'
-    return 'zh'
+    return 'other' #数字会被识别为英语、中文之外，如果按中文处理，其他小语种也能享受到英文翻译，如果不处理，可以避免莫名其妙的翻译请求，如果额外处理，莫名其妙翻译请求的情况会加倍
 def extract_with_language(file_path: str) -> List[Dict[str, str]]:
     _, file_ext = os.path.splitext(file_path.lower())
     # 提取文本段落
@@ -35,8 +35,6 @@ def extract_with_language(file_path: str) -> List[Dict[str, str]]:
     ]
     return result
 def extract_txt(file_path: str) -> List[str]:
-    content = ""
-    # 尝试常见编码
     encodings = ['utf-8', 'gb18030', 'gbk', 'big5', 'latin-1']
     
     for enc in encodings:
@@ -46,12 +44,13 @@ def extract_txt(file_path: str) -> List[str]:
             break
         except UnicodeDecodeError:
             continue
-    
-    if not content:
+    else:
+        # for 循环正常结束（所有编码都失败）才执行
         print(f"Error: Could not decode text file {file_path}")
         return []
-    raw_lines = content.splitlines()
-    return raw_lines
+    
+    # 分割行并过滤空行（包括只有空白字符的行）
+    return [line for line in content.splitlines() if line.strip()]
 # def split_paragraphs(paragraphs, max_length=220):
 #     """
 #     对段落列表进行处理：
