@@ -89,7 +89,9 @@ def upload_and_extract(file: UploadFile = File(...)):
     try:
         with tmp_file:
             shutil.copyfileobj(file.file, tmp_file)
-        return extract_with_language(tmp_file.name)
+        data=extract_with_language(tmp_file.name)
+        storage.set('currentDoc', data)
+        return data
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

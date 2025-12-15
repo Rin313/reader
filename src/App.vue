@@ -38,7 +38,7 @@
                         </template>
                         {{ vocabHighlightEnabled ? '关闭生词高亮' : '开启生词高亮' }}
                     </n-tooltip>
-                    <n-popselect v-model:value="currentTranslator" :options="translatorOptions" trigger="click" @update:value="handleTranslatorChange">
+                    <n-popselect v-model:value="translator" :options="translatorOptions" trigger="click" @update:value="handleTranslatorChange">
                         <n-button circle quaternary type="default">
                             <template #icon><n-icon size="20"><LanguageOutline /></n-icon></template>
                         </n-button>
@@ -51,7 +51,6 @@
         </div>
       </header>
       <main class="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-8 py-8 pb-48 relative">
-        <transition name="fade" mode="out-in">
           <!-- Empty State -->
           <div v-if="paragraphs.length === 0" class="flex flex-col items-center justify-center py-20 select-none min-h-[60vh]">
             <div 
@@ -81,14 +80,16 @@
             </div>
             <!-- Paragraphs Loop (Paginated) -->
             <div 
-              v-for="para in currentParagraphs" 
-              :key="para.id"
-              :id="`para-${para.realIndex}`"
-              :data-index="para.realIndex"
-              class="para-observer-item relative rounded-xl transition-all duration-300 border-l-4 scroll-m-32"
-              :class="getParagraphClass(para.realIndex)"
-              @click="handleParagraphClick(para.realIndex)"
-            >
+                v-for="para in currentParagraphs" 
+                :key="para.id"
+                :id="`para-${para.realIndex}`"
+                :data-index="para.realIndex"
+                class="para-observer-item relative rounded-xl transition-all duration-300 border-l-4 scroll-m-32 group"
+                :class="currentPlayingIndex === para.realIndex
+                    ? 'bg-white shadow-xl shadow-indigo-100/50 border-indigo-500/30 z-10' 
+                    : 'bg-white/60 hover:bg-white border-transparent hover:border-slate-200 hover:shadow-sm'"
+                @click="handleParagraphClick(para.realIndex)"
+                >
               <span class="absolute top-2 left-1 sm:left-2 text-[9px] font-mono text-slate-300 select-none opacity-0 group-hover:opacity-100 transition-opacity">#{{ para.realIndex + 1 }}</span>
               <div class="absolute top-2 right-2 flex gap-2 opacity-50">
                  <n-icon v-if="para.processingSegment" size="14" class="animate-spin text-indigo-400"><GitNetworkOutline /></n-icon>
@@ -148,10 +149,8 @@
                 </div>
             </div>
           </div>
-        </transition>
       </main>
       <!-- 悬浮播放器 -->
-      <transition name="slide-up">
         <div v-if="paragraphs.length > 0" class="fixed bottom-6 left-0 right-0 z-40 px-4 flex justify-center pointer-events-none">
            <div class="bg-slate-900/95 backdrop-blur-xl text-white p-3 pl-4 rounded-2xl shadow-2xl shadow-slate-900/30 w-full max-w-xl pointer-events-auto border border-slate-700/50 flex flex-col gap-2 ring-1 ring-white/10">
             <div class="flex items-center gap-3">
@@ -204,14 +203,13 @@
             </div>
           </div>
         </div>
-      </transition>
       <VocabUploader ref="vocabUploaderRef" @import-success="handleVocabImportSuccess" />
       <input type="file" ref="fileInputRef" class="hidden" @change="handleFileChange" accept=".txt,.epub,.pdf" />
     </div>
   </n-config-provider>
 </template>
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted,nextTick } from 'vue'
 import { 
   NConfigProvider, NButton, NIcon, NRadioGroup, NRadioButton, 
   NDivider, NTooltip, NProgress, NPopselect, createDiscreteApi 
@@ -223,7 +221,7 @@ import {
 import { 
   uploadAndExtract, segmentSentence, 
   matchVocabulary, translateParagraphs, translatorOptions,
-  enVoiceOptions, cnVoiceOptions, getAudioUrl, speedOptions, formatRate, generateHighlightHtml, smoothRefresh
+  enVoiceOptions, cnVoiceOptions, getAudioUrl, speedOptions, formatRate, generateHighlightHtml, smoothRefresh,setItem,getItem
 } from './assets/common'
 import VocabUploader from './VocabUploader.vue'
 const themeOverrides = {
@@ -232,11 +230,11 @@ const themeOverrides = {
 const { message } = createDiscreteApi(['message'], { configProviderProps: { themeOverrides } })
 const fileInputRef = ref(null)
 const vocabUploaderRef = ref(null)
-const paragraphs = ref([]) 
+const paragraphs = ref([])
 const viewMode = ref('dual')
 const segmentationEnabled = ref(false)
 const vocabHighlightEnabled = ref(false)
-const currentTranslator = ref('google')
+const translator = ref('google')
 const translationQueue = new Set() 
 let translationTimer = null
 const isBatchTranslating = ref(false)
@@ -279,33 +277,46 @@ const handleParagraphClick = (realIndex) => {
   if (window.getSelection()?.toString().length > 0) return
   playParagraph(realIndex)
 }
-const changePage = (page) => {
+const changePage = async (page,scroll=true) => {
   if (page < 1 || page > totalPages.value) return
   currentPage.value = page
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-  setTimeout(initObserver, 600)
+  if(scroll)window.scrollTo({ top: 0, behavior: 'smooth' })
+  await nextTick();initObserver()
+}
+const goIndex=async (index)=>{
+  const targetPage = Math.floor(index / PAGE_SIZE) + 1
+  if (targetPage !== currentPage.value) {
+     await changePage(targetPage,false)
+  }
+  document.getElementById(`para-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 const playParagraph = async (index) => {
   if (index < 0 || index >= paragraphs.value.length) return
-  const targetPage = Math.floor(index / PAGE_SIZE) + 1
-  if (targetPage !== currentPage.value) {
-     changePage(targetPage)
-     // Wait slightly longer for page transition before scrolling to element
-     await new Promise(r => setTimeout(r, 600))
-  }
   currentPlayingIndex.value = index
   readingPhase.value = viewMode.value === 'cn' ? 'cn' : 'en'
-  document.getElementById(`para-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  await loadAndPlayAudio()
+  await goIndex(index);
+  await loadAndPlayAudio();
 }
-const handleKeydown = (e) => {
+const handleKeydown = async (e) => {
   if (e.key === 'ArrowLeft') {
-    changePage(currentPage.value - 1)
+    await changePage(currentPage.value - 1)
   } else if (e.key === 'ArrowRight') {
-    changePage(currentPage.value + 1)
+    await changePage(currentPage.value + 1)
   }
 }
 onMounted(async () => {
+    viewMode.value=await getItem('viewMode',viewMode.value);
+    segmentationEnabled.value = await getItem('segmentationEnabled',segmentationEnabled.value);
+    vocabHighlightEnabled.value = await getItem('vocabHighlightEnabled',vocabHighlightEnabled.value);
+    translator.value = await getItem('translator',translator.value);
+    const last_index=await getItem('deepreader_last_index', 0);
+    if(last_index){
+        const extracted=await getItem('currentDoc',[]);
+        if(extracted?.length){
+            await setParas(extracted);
+            await goIndex(last_index);
+        }
+    }
   window.addEventListener('keydown', handleKeydown)
   audio.addEventListener('timeupdate', () => { currentTime.value = audio.currentTime })
   audio.addEventListener('loadedmetadata', () => { totalTime.value = audio.duration; isBuffering.value = false })
@@ -325,44 +336,41 @@ onMounted(async () => {
     }
   })
 })
-const getParagraphClass = (realIndex) => {
-  const isActive = currentPlayingIndex.value === realIndex
-  return [
-    'group',
-    isActive 
-      ? 'bg-white shadow-xl shadow-indigo-100/50 border-indigo-500/30 z-10' 
-      : 'bg-white/60 hover:bg-white border-transparent hover:border-slate-200 hover:shadow-sm'
-  ]
-}
-const resetReader = () => { if (paragraphs.value.length && confirm('Clear all？')) smoothRefresh();}
+const resetReader = async () => { if (paragraphs.value.length && confirm('Clear all？')) {
+    await setItem('deepreader_last_index', 0);
+    smoothRefresh();
+}}
 const handleFileChange = async (e) => {
-  const file = e.target.files[0]
-  if (!file) return
-  try {
-    const extracted = await uploadAndExtract(file)
-    if (extracted?.length) {
-        paragraphs.value = extracted.map((p, index) => ({
-            id: `p-${index}`,
-            originLang: p.lang,
-            enText: p.lang !== 'zh' ? p.text : '',
-            cnText: p.lang !== 'en' ? p.text : '',
-            chunks: null, 
-            enTextDisplay: null, 
-            chunksDisplay: null, 
-            processingSegment: false, 
-            processingVocab: false, 
-            translating: false 
-        }));
-      setTimeout(initObserver, 600)
-    } else { message.error("未提取到有效文本"); }
-  } catch (error) { message.error("解析失败"); } finally { e.target.value = '' }
+    const file = e.target.files[0]
+    if (!file) return
+    try {
+        const extracted=await uploadAndExtract(file);
+        if (extracted?.length) {
+            await setParas(extracted)
+        } else { message.error("未提取到有效文本"); }
+    } catch (error) { message.error("解析失败"); console.log(error)} finally { e.target.value = '' }
 }
-const handleViewModeChange = () => { initObserver(); if (isPlaying.value) playParagraph(currentPlayingIndex.value) }
+const setParas = async(extracted) =>{
+    paragraphs.value = extracted.map((p, index) => ({
+        id: `p-${index}`,
+        originLang: p.lang,
+        enText: p.lang !== 'zh' ? p.text : '',
+        cnText: p.lang !== 'en' ? p.text : '',
+        chunks: null, 
+        enTextDisplay: null, 
+        chunksDisplay: null, 
+        processingSegment: false, 
+        processingVocab: false, 
+        translating: false 
+    }));
+    await nextTick();initObserver()
+}
+const handleViewModeChange = async() => { await setItem('viewMode',viewMode.value);initObserver(); if (isPlaying.value) playParagraph(currentPlayingIndex.value) }
 const processParagraph = async (index) => {
     const p = paragraphs.value[index]
     const needsChinese = viewMode.value !== 'en'
     const needsEnglish = viewMode.value !== 'cn'
-    if (needsChinese && !p.cnText && !p.translating || needsEnglish && !p.enText && !p.translating) queueTranslation(index)
+    if ((needsChinese && !p.cnText && !p.translating) || (needsEnglish && !p.enText && !p.translating)) queueTranslation(index)
     if (needsEnglish && p.enText) {
         if (segmentationEnabled.value && !p.chunks && !p.processingSegment) {
             p.processingSegment = true
@@ -386,7 +394,8 @@ const processParagraph = async (index) => {
         }
     }
 }
-const handleTranslatorChange = () => {
+const handleTranslatorChange = async () => {
+  await setItem('translator',translator.value);
   clearTimeout(translationTimer)
   translationQueue.clear()
   isBatchTranslating.value = false
@@ -402,7 +411,7 @@ const handleTranslatorChange = () => {
     }
     p.translating = false 
   })
-  setTimeout(initObserver, 600)
+  await nextTick();initObserver();
 }
 const queueTranslation = (index) => {
   const p = paragraphs.value[index];
@@ -424,7 +433,7 @@ const flushTranslationQueue = async () => {
   try {
     if (enToZhIndices.length > 0) {
         const texts = enToZhIndices.map(i => paragraphs.value[i].enText)
-        const translated = await translateParagraphs(texts, currentTranslator.value, 'auto', 'zh')
+        const translated = await translateParagraphs(texts, translator.value, 'auto', 'zh')
         enToZhIndices.forEach((idx, i) => {
             if (paragraphs.value[idx]) {
                 paragraphs.value[idx].cnText = translated[i]
@@ -434,7 +443,7 @@ const flushTranslationQueue = async () => {
     }
     if (zhToEnIndices.length > 0) {
         const texts = zhToEnIndices.map(i => paragraphs.value[i].cnText)
-        const translated = await translateParagraphs(texts, currentTranslator.value, 'auto', 'en')
+        const translated = await translateParagraphs(texts, translator.value, 'auto', 'en')
         zhToEnIndices.forEach((idx, i) => {
             if (paragraphs.value[idx]) {
                 paragraphs.value[idx].enText = translated[i]
@@ -453,8 +462,19 @@ const flushTranslationQueue = async () => {
 const getRawHtml = (p) => (vocabHighlightEnabled.value && p.enTextDisplay) ? p.enTextDisplay : p.enText
 const getChunkHtml = (p, index, originalChunk) => (vocabHighlightEnabled.value && p.chunksDisplay?.[index]) ? p.chunksDisplay[index] : originalChunk
 let observer = null
+let readingObserver = null
+let saveProgressTimer = null
+const saveReadingProgress = (realIndex) => {
+  if (saveProgressTimer) clearTimeout(saveProgressTimer)
+  saveProgressTimer = setTimeout(async() => {
+    if (realIndex !== undefined && realIndex !== null) {
+      await setItem('deepreader_last_index', realIndex)
+    }
+  }, 500)
+}
 const initObserver = () => {
   observer?.disconnect()
+  readingObserver?.disconnect()
   observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => { 
         if (entry.isIntersecting) { 
@@ -463,13 +483,32 @@ const initObserver = () => {
         } 
     })
   }, { rootMargin: '400px 0px 400px 0px', threshold: 0.01 })
-  document.querySelectorAll('.para-observer-item').forEach(el => observer.observe(el))
+  readingObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const idx = Number(entry.target.dataset.index)
+        if (!isNaN(idx)) saveReadingProgress(idx)
+      }
+    })
+  }, { rootMargin: '-40% 0px -50% 0px', threshold: 0 })
+  document.querySelectorAll('.para-observer-item').forEach(el => {
+    observer.observe(el)
+    readingObserver.observe(el)
+  })
 }
-const toggleSegmentation = () => { segmentationEnabled.value = !segmentationEnabled.value; initObserver() }
-const toggleVocab = async () => { vocabHighlightEnabled.value = !vocabHighlightEnabled.value; initObserver();}
+const toggleSegmentation = async() => { 
+    segmentationEnabled.value = !segmentationEnabled.value;
+    await setItem('segmentationEnabled',segmentationEnabled.value);
+    initObserver()
+}
+const toggleVocab = async () => {
+    vocabHighlightEnabled.value = !vocabHighlightEnabled.value;
+    await setItem('vocabHighlightEnabled',vocabHighlightEnabled.value);
+    initObserver();
+}
 const togglePlay = () => {
   if (isPlaying.value) { audio.pause(); isPlaying.value = false } 
-  else { if (currentPlayingIndex.value === -1 && paragraphs.value.length > 0) playParagraph(0); else audio.play().catch(e => console.error("Resume failed", e)) }
+  else { if (currentPlayingIndex.value === -1 && paragraphs.value.length > 0) playParagraph(0); else audio.play().catch(e => {console.error("Resume failed", e);isPlaying.value = false}) }
 }
 const seekAudio = (e) => { 
   if (!totalTime.value) return
@@ -494,10 +533,6 @@ const loadAndPlayAudio = async () => {
 }
 </script>
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.slide-up-enter-active, .slide-up-leave-active { transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease; }
-.slide-up-enter-from, .slide-up-leave-to { transform: translateY(100%); opacity: 0; }
 .en-reading-text {
   font-family: 'Georgia', 'Cambria', 'Palatino Linotype', 'Palatino', 'Book Antiqua', 'Times New Roman', serif;
   font-feature-settings: 'kern' 1, 'liga' 1;

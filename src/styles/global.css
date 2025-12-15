@@ -3,22 +3,3 @@
 @view-transition {
   navigation: auto;
 }
-
-/* 做个通用淡入淡出（不绑定任何页面结构） */
-@media (prefers-reduced-motion: no-preference) {
-  ::view-transition-old(root) {
-    animation: vt-fade-out 160ms ease both;
-  }
-  ::view-transition-new(root) {
-    animation: vt-fade-in 200ms ease both;
-  }
-
-  @keyframes vt-fade-out {
-    from { opacity: 1; }
-    to   { opacity: 0; }
-  }
-  @keyframes vt-fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-}

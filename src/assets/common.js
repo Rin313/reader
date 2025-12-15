@@ -4,7 +4,7 @@ export function listenToggle(obj,key,defaultValue=true){
     obj.addEventListener("change", () => setIndexed(key, obj.checked));
 }
 async function _jsonFetch(url,{ headers = {}, body, ...rest } = {}) {
-    if ((body && (body.constructor === Object || Array.isArray(body)))) {
+    if (body != null && typeof body !== 'string' &&!(body instanceof FormData) &&!(body instanceof Blob)) {
         headers['Content-Type'] ??= 'application/json';
         body = JSON.stringify(body);
     }

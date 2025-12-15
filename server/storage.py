@@ -15,7 +15,7 @@ class ShelveStorage:
         finally:
             db.close()
     def get(self, key: str, default=None):
-        with self._open('r') as db:
+        with self._open('c') as db:
             return db.get(key, default)
     def set(self, key: str, value):
         with self._open() as db:
