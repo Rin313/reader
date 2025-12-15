@@ -41,20 +41,36 @@ def split_paragraphs(texts: list[str],
 # 全局缓存
 _CACHED_MATCHER = None
 _CACHED_VOCAB_ID = None
+_CACHED_PATTERNS = None  # 新增：缓存 patterns 用于建立 lemma 映射
+
+
 def find_vocab_matches(vocab_list, text_list):
-    global _CACHED_MATCHER, _CACHED_VOCAB_ID
+    global _CACHED_MATCHER, _CACHED_VOCAB_ID, _CACHED_PATTERNS
     
-    current_vocab_id = hash(tuple(vocab_list)) 
+    # 从 vocab_list 中提取 word 列表
+    words = [item["word"] for item in vocab_list]
     
+    # 使用 words 元组计算 hash（仅用于 Matcher 缓存）
+    current_vocab_id = hash(tuple(words))
+    
+    # 判断是否需要重建 Matcher（仅当 words 变化时）
     if _CACHED_MATCHER is None or _CACHED_VOCAB_ID != current_vocab_id:
         _CACHED_MATCHER = PhraseMatcher(nlp.vocab, attr="LEMMA")
         # 生成 Pattern 时禁用 parser，只保留必要的组件以获取 lemma
         # en_core_web_trf 的 lemmatizer 需要 tagger，tagger 需要 transformer
         # 但 parser 是用于句法分析的，生成单个词的 lemma 时不需要
-        patterns = list(nlp.pipe(vocab_list, disable=["parser"],batch_size=1000))
-            
-        _CACHED_MATCHER.add("VOCAB_LIST", patterns)
+        _CACHED_PATTERNS = list(nlp.pipe(words, disable=["parser"], batch_size=1000))
+        _CACHED_MATCHER.add("VOCAB_LIST", _CACHED_PATTERNS)
         _CACHED_VOCAB_ID = current_vocab_id
+    
+    # 每次都重新建立 lemma -> vocab_item 的映射（确保 meaning 是最新的）
+    # 这个操作开销很小，不需要缓存
+    lemma_map = {}
+    for pattern, item in zip(_CACHED_PATTERNS, vocab_list):
+        # pattern 是 Doc 对象，需要遍历 tokens 获取 lemma
+        lemma_key = " ".join([token.lemma_ for token in pattern]).lower()
+        if lemma_key not in lemma_map:
+            lemma_map[lemma_key] = item
 
     results = []
     
@@ -63,12 +79,21 @@ def find_vocab_matches(vocab_list, text_list):
         spans = [doc[start:end] for _, start, end in matches]
         filtered_spans = filter_spans(spans)
         
-        doc_matches = [{
-            "start": span.start_char,
-            "length": len(span.text),
-            "matched_text": span.text,
-            "vocab_lemma": span.lemma_
-        } for span in filtered_spans]
+        doc_matches = []
+        for span in filtered_spans:
+            # Span 对象有 lemma_ 属性，会自动拼接所有 token 的 lemma
+            lemma_key = span.lemma_.lower()
+            vocab_item = lemma_map.get(lemma_key, {})
+            
+            doc_matches.append({
+                "start": span.start_char,
+                "length": len(span.text),
+                "matched_text": span.text,
+                "vocab_lemma": span.lemma_,
+                "word": vocab_item.get("word", ""),
+                "meaning": vocab_item.get("meaning", "")
+            })
+        
         results.append(doc_matches)
 
     return results

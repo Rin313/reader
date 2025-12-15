@@ -30,10 +30,7 @@ def safe_copy_metadata(package_name):
         return []
 
 # --- 收集常规依赖 ---
-safe_collect('trafilatura')
-safe_collect('justext') 
 safe_collect('curated_transformers')
-
 datas += safe_copy_metadata('spacy_curated_transformers')
 
 

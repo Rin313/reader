@@ -148,7 +148,7 @@ async def get_item(key: str):
 @app.put("/api/storage/{key}")
 async def set_item(key: str, value: Any = Body(...)):
     storage.set(key, value)
-static_dist_path = os.path.join(get_app_path(), "dist", "DeepReader", "dist")
+static_dist_path = os.path.join(get_app_path(), "dist")
 # 静态文件挂载放在最后，避免覆盖 API 路由
 app.mount("/", StaticFiles(directory=static_dist_path, html=True), name="static")
 
@@ -157,7 +157,7 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
     
     uvicorn.run(
-        'main:app', 
+        app, 
         host=HOST, 
         port=PORT, 
         reload=False, 

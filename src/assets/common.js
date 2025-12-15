@@ -315,11 +315,15 @@ export const generateHighlightHtml = (text, matches) => {
   const sorted = [...matches].sort((a, b) => b.start - a.start)
   let result = text
   sorted.forEach(m => {
-    const { start, length } = m
+    const { start, length, meaning } = m
     if (start < 0 || start + length > result.length) return
     const word = result.slice(start, start + length)
+    // 转义 meaning 中的特殊字符用于 HTML 属性
+    const meaningAttr = meaning 
+      ? ` data-meaning="${meaning.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"` 
+      : ''
     result = result.slice(0, start) + 
-      `<span class="border-b-[1.5px] border-amber-400 text-amber-900/90 cursor-help hover:bg-amber-100/50 hover:text-amber-700 transition-colors">${word}</span>` + 
+      `<span class="vocab-highlight border-b-[1.5px] border-amber-400 text-amber-900/90 cursor-help hover:bg-amber-100/50 hover:text-amber-700 transition-colors"${meaningAttr}>${word}</span>` + 
       result.slice(start + length)
   })
   return result

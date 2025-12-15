@@ -209,7 +209,7 @@
   </n-config-provider>
 </template>
 <script setup>
-import { ref, computed, onMounted,nextTick } from 'vue'
+import { ref, computed, onMounted,onUnmounted,nextTick } from 'vue'
 import { 
   NConfigProvider, NButton, NIcon, NRadioGroup, NRadioButton, 
   NDivider, NTooltip, NProgress, NPopselect, createDiscreteApi 
@@ -304,6 +304,104 @@ const handleKeydown = async (e) => {
     await changePage(currentPage.value + 1)
   }
 }
+// ===== Vocab Tooltip 单例浮层 =====
+let vocabTooltip = null
+let currentVocabTarget = null
+
+const createVocabTooltip = () => {
+  if (vocabTooltip) return vocabTooltip
+  vocabTooltip = document.createElement('div')
+  vocabTooltip.id = 'vocab-tooltip'
+  Object.assign(vocabTooltip.style, {
+    position: 'fixed',
+    zIndex: '9999',
+    background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+    color: '#f1f5f9',
+    padding: '10px 14px',
+    borderRadius: '10px',
+    fontSize: '14px',
+    lineHeight: '1.6',
+    maxWidth: '320px',
+    pointerEvents: 'none',
+    opacity: '0',
+    transform: 'translateY(4px)',
+    transition: 'opacity 0.2s ease, transform 0.2s ease',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.1)',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    border: '1px solid rgba(255,255,255,0.1)'
+  })
+  document.body.appendChild(vocabTooltip)
+  return vocabTooltip
+}
+
+const showVocabTooltip = (target, meaning) => {
+  if (!meaning) return
+  const tooltip = createVocabTooltip()
+  // 使用 textContent 确保换行、特殊符号正常显示
+  tooltip.textContent = meaning
+  
+  // 先隐藏定位以获取准确尺寸
+  tooltip.style.visibility = 'hidden'
+  tooltip.style.opacity = '1'
+  
+  requestAnimationFrame(() => {
+    const rect = target.getBoundingClientRect()
+    const tooltipRect = tooltip.getBoundingClientRect()
+    
+    // 计算位置 - 默认显示在单词上方
+    let left = rect.left + (rect.width - tooltipRect.width) / 2
+    let top = rect.top - tooltipRect.height - 8
+    
+    // 左右边界检测
+    const margin = 12
+    if (left < margin) left = margin
+    if (left + tooltipRect.width > window.innerWidth - margin) {
+      left = window.innerWidth - tooltipRect.width - margin
+    }
+    
+    // 上方空间不够则显示在下方
+    if (top < margin) {
+      top = rect.bottom + 8
+    }
+    
+    tooltip.style.left = `${left}px`
+    tooltip.style.top = `${top}px`
+    tooltip.style.visibility = 'visible'
+    tooltip.style.transform = 'translateY(0)'
+  })
+}
+
+const hideVocabTooltip = () => {
+  if (vocabTooltip) {
+    vocabTooltip.style.opacity = '0'
+    vocabTooltip.style.transform = 'translateY(4px)'
+  }
+}
+
+// 事件委托处理
+const handleVocabMouseOver = (e) => {
+  const target = e.target.closest('.vocab-highlight')
+  if (target && target !== currentVocabTarget) {
+    currentVocabTarget = target
+    const meaning = target.dataset.meaning
+    if (meaning) {
+      showVocabTooltip(target, meaning)
+    }
+  }
+}
+
+const handleVocabMouseOut = (e) => {
+  const target = e.target.closest('.vocab-highlight')
+  const relatedTarget = e.relatedTarget?.closest?.('.vocab-highlight')
+  
+  // 确保是真正离开了当前高亮元素
+  if (target && target === currentVocabTarget && target !== relatedTarget) {
+    currentVocabTarget = null
+    hideVocabTooltip()
+  }
+}
+
 onMounted(async () => {
     viewMode.value=await getItem('viewMode',viewMode.value);
     segmentationEnabled.value = await getItem('segmentationEnabled',segmentationEnabled.value);
@@ -318,6 +416,9 @@ onMounted(async () => {
         }
     }
   window.addEventListener('keydown', handleKeydown)
+      // 添加词汇 tooltip 事件委托
+    document.addEventListener('mouseover', handleVocabMouseOver)
+    document.addEventListener('mouseout', handleVocabMouseOut)
   audio.addEventListener('timeupdate', () => { currentTime.value = audio.currentTime })
   audio.addEventListener('loadedmetadata', () => { totalTime.value = audio.duration; isBuffering.value = false })
   audio.addEventListener('waiting', () => { isBuffering.value = true })
@@ -336,6 +437,22 @@ onMounted(async () => {
     }
   })
 })
+// 添加 onUnmounted 清理
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('mouseover', handleVocabMouseOver)
+  document.removeEventListener('mouseout', handleVocabMouseOut)
+  
+  // 清理 tooltip DOM
+  if (vocabTooltip && vocabTooltip.parentNode) {
+    vocabTooltip.parentNode.removeChild(vocabTooltip)
+    vocabTooltip = null
+  }
+  
+  // 清理 observer
+  observer?.disconnect()
+  readingObserver?.disconnect()
+})
 const resetReader = async () => { if (paragraphs.value.length && confirm('Clear all？')) {
     await setItem('deepreader_last_index', 0);
     smoothRefresh();
@@ -348,7 +465,7 @@ const handleFileChange = async (e) => {
         if (extracted?.length) {
             await setParas(extracted)
         } else { message.error("未提取到有效文本"); }
-    } catch (error) { message.error("解析失败"); console.log(error)} finally { e.target.value = '' }
+    } catch (error) { message.error("解析失败"); } finally { e.target.value = '' }
 }
 const setParas = async(extracted) =>{
     paragraphs.value = extracted.map((p, index) => ({
@@ -433,7 +550,7 @@ const flushTranslationQueue = async () => {
   try {
     if (enToZhIndices.length > 0) {
         const texts = enToZhIndices.map(i => paragraphs.value[i].enText)
-        const translated = await translateParagraphs(texts, translator.value, 'auto', 'zh')
+        const translated = await translateParagraphs(texts, translator.value, 'en', 'zh')
         enToZhIndices.forEach((idx, i) => {
             if (paragraphs.value[idx]) {
                 paragraphs.value[idx].cnText = translated[i]
@@ -443,7 +560,7 @@ const flushTranslationQueue = async () => {
     }
     if (zhToEnIndices.length > 0) {
         const texts = zhToEnIndices.map(i => paragraphs.value[i].cnText)
-        const translated = await translateParagraphs(texts, translator.value, 'auto', 'en')
+        const translated = await translateParagraphs(texts, translator.value, 'zh', 'en')
         zhToEnIndices.forEach((idx, i) => {
             if (paragraphs.value[idx]) {
                 paragraphs.value[idx].enText = translated[i]
@@ -504,6 +621,7 @@ const toggleSegmentation = async() => {
 const toggleVocab = async () => {
     vocabHighlightEnabled.value = !vocabHighlightEnabled.value;
     await setItem('vocabHighlightEnabled',vocabHighlightEnabled.value);
+    if (!vocabHighlightEnabled.value) hideTip()
     initObserver();
 }
 const togglePlay = () => {

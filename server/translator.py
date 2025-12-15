@@ -3,9 +3,38 @@ os.environ["translators_default_region"] = "EN"
 import translators as ts
 import deepl
 import random
+from common import get_app_path
 
+def load_deepl_key(filename="deepl_key.txt"):
+    """
+    读取并返回 API Key，如果文件不存在则创建并提示退出
+    """
+    # 组合完整路径：程序根目录 + 文件名
+    config_path = os.path.join(get_app_path(), filename)
+    # 检查文件是否存在
+    if not os.path.exists(config_path):
+        try:
+            # 创建一个空文件，方便用户直接打开填写
+            with open(config_path, 'w', encoding='utf-8') as f:
+                f.write("") 
+            print(f"已自动创建配置文件：{config_path}")
+            print("请打开配置文件，粘贴 DeepL API Key 并保存，然后重新运行本程序。")
+        except Exception as e:
+            print(f"【错误】无法创建配置文件: {e}")
+
+    # 读取文件
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            # .strip() 去除首尾的空格、换行符，防止用户复制出错
+            api_key = f.read().strip()
+    except Exception as e:
+        print(f"【错误】读取配置文件失败: {e}")
+    # 检查 Key 是否为空
+    # if not api_key:
+    #     print(f"【提示】配置文件 '{filename}' 是空的。")
+    return api_key
 # 从环境变量获取 DeepL API key
-DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "")
+DEEPL_API_KEY = load_deepl_key()
 
 # 不要使用并发
 def translate_text_wrapper(
